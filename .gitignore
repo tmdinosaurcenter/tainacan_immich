@@ -1,0 +1,11 @@
+.pipeline/
+
+# Agent team files (local only)
+/.claude/
+/AGENTS.md
+/CLAUDE.md
+
+# Plugin build output
+tainacan-immich/node_modules
+tainacan-immich/build
+.vscode

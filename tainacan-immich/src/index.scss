@@ -1,0 +1,17 @@
+/**
+ * Tainacan Immich
+ */
+.tainacan-immich {
+   .tainacan-immich-user-avatar img {
+      border-radius: 100em;
+   }
+}
+
+.tainacan-immich-settings {
+   p {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25em;
+      max-width: 32em;
+   }
+}
