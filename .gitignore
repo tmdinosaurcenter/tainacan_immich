@@ -9,3 +9,4 @@
 tainacan-immich/node_modules
 tainacan-immich/build
 .vscode
+/build
