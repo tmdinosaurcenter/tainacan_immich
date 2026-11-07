@@ -95,6 +95,15 @@ t_run( 'extract_exif strings', function () {
 	t_check( 'tz cut', 64, strlen( $r['time_zone'] ) );
 	$r = t_x( array( 'city' => '<b>x</b>' ) );
 	t_check( 'html kept as text', '<b>x</b>', $r['city'] );
+	t_check( 'date spaces blank', '', t_x( array( 'dateTimeOriginal' => '   ' ) )['date_taken'] );
+	t_check( 'date empty blank', '', t_x( array( 'dateTimeOriginal' => '' ) )['date_taken'] );
+	t_check( 'date whitespace chars blank', '', t_x( array( 'dateTimeOriginal' => " \t\n\r " ) )['date_taken'] );
+	t_check( 'date padded trimmed', '2024-05-01T10:00:00.000Z', t_x( array( 'dateTimeOriginal' => ' 2024-05-01T10:00:00.000Z ' ) )['date_taken'] );
+	t_check( 'date trim before cut', 'x', t_x( array( 'dateTimeOriginal' => str_repeat( ' ', 70 ) . 'x' ) )['date_taken'] );
+	t_check( 'date missing key blank', '', t_x( array( 'city' => 'x' ) )['date_taken'] );
+	t_check( 'date null blank', '', t_x( array( 'dateTimeOriginal' => null ) )['date_taken'] );
+	t_check( 'date nbsp only unchanged (out of scope)', "\xC2\xA0", t_x( array( 'dateTimeOriginal' => "\xC2\xA0" ) )['date_taken'] );
+	t_check( 'tz spaces unchanged (out of scope)', '   ', t_x( array( 'timeZone' => '   ' ) )['time_zone'] );
 } );
 
 t_run( 'format_coord', function () {
@@ -107,13 +116,73 @@ t_run( 'format_coord', function () {
 	t_check( 'lon 151.20929551234', '151.2092955123', C::format_coord( 151.20929551234 ) );
 	t_check( 'near 180', '-180', C::format_coord( -179.99999999999 ) );
 	t_check( 'decimals', '12.123456789', C::format_coord( 12.123456789012 ) );
-	foreach ( array( 'de_DE.UTF-8', 'pt_BR.UTF-8' ) as $loc ) {
-		if ( false !== setlocale( LC_ALL, $loc ) ) {
-			t_check( 'locale ' . $loc, '-23.5505', C::format_coord( -23.5505 ) );
-			t_check( 'locale float cast ' . $loc, 'https://www.openstreetmap.org/?mlat=1.5&mlon=2.5#map=15/1.5/2.5', t_x( array( 'latitude' => 1.5, 'longitude' => 2.5 ) )['map_url'] );
+} );
+
+t_run( 'locale independence', function () {
+	// Part a: static proof. Needs no installed locale.
+	$src = array();
+	foreach ( array( 'format_coord', 'extract_exif' ) as $m ) {
+		$rm    = new ReflectionMethod( C::class, $m );
+		$lines = file( $rm->getFileName() );
+		$code  = implode( '', array_slice( $lines, $rm->getStartLine() - 1, $rm->getEndLine() - $rm->getStartLine() + 1 ) );
+		$clean = '';
+		foreach ( token_get_all( '<?php ' . $code ) as $tok ) {
+			if ( is_array( $tok ) ) {
+				if ( T_COMMENT === $tok[0] || T_DOC_COMMENT === $tok[0] ) {
+					continue;
+				}
+				$clean .= $tok[1];
+			} else {
+				$clean .= $tok;
+			}
+		}
+		$src[ $m ] = $clean;
+	}
+	$banned = array( 'setlocale', 'localeconv', 'nl_langinfo', 'sprintf', 'printf', 'vsprintf', 'number_format_i18n', 'strftime', 'strval', 'settype', 'NumberFormatter' );
+	foreach ( $src as $m => $code ) {
+		foreach ( $banned as $fn ) {
+			t_check( "static $m no $fn", 0, preg_match( '/\b' . $fn . '\s*\(/i', $code ) );
+		}
+		t_check( "static $m no (string) cast", 0, preg_match( '/\(\s*string\s*\)/i', $code ) );
+	}
+	t_contains( 'static format_coord explicit separators', "number_format( \$value, 10, '.', '' )", $src['format_coord'] );
+	$map_line = '';
+	foreach ( explode( "\n", $src['extract_exif'] ) as $line ) {
+		if ( false !== strpos( $line, "'map_url'" ) ) {
+			$map_line = $line;
+			break;
 		}
 	}
-	setlocale( LC_ALL, 'C' );
+	$after = substr( $map_line, (int) strpos( $map_line, '=>' ) + 2 );
+	preg_match_all( '/\$\w+/', $after, $vars );
+	$extra = array_values( array_diff( array_unique( $vars[0] ), array( '$gps', '$lat', '$lon' ) ) );
+	t_check( 'static map_url line found', true, '' !== $map_line );
+	t_check( 'static map_url uses only gps/lat/lon', array(), $extra );
+
+	// Part b: runtime loop with any installed locale.
+	$old   = setlocale( LC_ALL, 0 );
+	$ran   = array();
+	$comma = array();
+	foreach ( array( 'de_DE.UTF-8', 'de_DE', 'pt_BR.UTF-8', 'pt_BR', 'fr_FR.UTF-8', 'ru_RU.UTF-8', 'C.UTF-8', 'C' ) as $loc ) {
+		if ( false === setlocale( LC_ALL, $loc ) ) {
+			continue;
+		}
+		$ran[] = $loc;
+		if ( ',' === localeconv()['decimal_point'] ) {
+			$comma[] = $loc;
+		}
+		t_check( 'locale ' . $loc, '-23.5505', C::format_coord( -23.5505 ) );
+		t_check( 'locale map_url ' . $loc, 'https://www.openstreetmap.org/?mlat=1.5&mlon=2.5#map=15/1.5/2.5', t_x( array( 'latitude' => 1.5, 'longitude' => 2.5 ) )['map_url'] );
+	}
+	setlocale( LC_ALL, $old );
+	t_check( 'locale restored after loop', $old, setlocale( LC_ALL, 0 ) );
+	if ( $comma ) {
+		echo 'NOTE  locale loop ran with comma-decimal locale(s): ' . implode( ', ', $comma ) . "\n";
+	} elseif ( $ran ) {
+		echo 'NOTE  no comma-decimal locale is installed; runtime loop ran only with: ' . implode( ', ', $ran ) . "; the static check is the proof\n";
+	} else {
+		echo "NOTE  no candidate locale is installed; runtime loop did not run; the static check is the proof\n";
+	}
 } );
 
 t_run( 'check exif key', function () use ( $A ) {

@@ -106,7 +106,7 @@ class Immich_Client {
 			'city'        => $text( 'city', 200 ),
 			'state'       => $text( 'state', 200 ),
 			'country'     => $text( 'country', 200 ),
-			'date_taken'  => ( isset( $exif['dateTimeOriginal'] ) && is_string( $exif['dateTimeOriginal'] ) ) ? mb_substr( $exif['dateTimeOriginal'], 0, 64 ) : '',
+			'date_taken'  => $text( 'dateTimeOriginal', 64 ),
 			'time_zone'   => ( isset( $exif['timeZone'] ) && is_string( $exif['timeZone'] ) ) ? mb_substr( $exif['timeZone'], 0, 64 ) : '',
 		);
 	}
