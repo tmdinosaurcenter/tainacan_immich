@@ -1,8 +1,8 @@
 /**
  * Options-form component for the "Immich link" metadata type.
  *
- * Plain JS (Vue 2 options API, template string). No imports.
- * Contract: props `value` (the options object) and `$emit('input', options)`.
+ * Plain JS (Vue 3 options API, template string). No imports.
+ * Contract: props `value` (the options object) and `$emit('update:value', options)`.
  */
 window.tainacan_extra_components =
 	typeof window.tainacan_extra_components !== 'undefined'
@@ -14,6 +14,7 @@ const TainacanImmichLinkForm = {
 	props: {
 		value: [ String, Number, Array, Object ],
 	},
+	emits: [ 'update:value' ],
 	data() {
 		return {
 			linkKind: 'asset',
@@ -29,7 +30,7 @@ const TainacanImmichLinkForm = {
 	methods: {
 		onUpdateLinkKind( kind ) {
 			this.linkKind = kind;
-			this.$emit( 'input', { link_kind: kind } );
+			this.$emit( 'update:value', { link_kind: kind } );
 		},
 	},
 	template: `
@@ -37,8 +38,8 @@ const TainacanImmichLinkForm = {
 			<b-field :addons="false" label="Kind of Immich link">
 				<b-select
 					size="is-small"
-					:value="linkKind"
-					@input="onUpdateLinkKind">
+					:model-value="linkKind"
+					@update:model-value="onUpdateLinkKind">
 					<option value="asset">Asset (many allowed)</option>
 					<option value="album">Album (one)</option>
 					<option value="person">Person (one)</option>

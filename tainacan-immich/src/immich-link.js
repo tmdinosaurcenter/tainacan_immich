@@ -1,7 +1,7 @@
 /**
  * Item edit-form component for the "Immich link" metadata type.
  *
- * Plain JS (Vue 2 options API, template string). No imports: Tainacan loads this
+ * Plain JS (Vue 3 options API, template string). No imports: Tainacan loads this
  * bundle with no script dependencies, and Tainacan provides Vue and Buefy.
  */
 window.tainacan_extra_components =
@@ -18,6 +18,7 @@ const TainacanImmichLink = {
 		value: [ String, Number, Array ],
 		disabled: false,
 	},
+	emits: [ 'update:value', 'blur' ],
 	data() {
 		return {
 			timer: null,
@@ -70,12 +71,12 @@ const TainacanImmichLink = {
 			this.check( this.value, false );
 		}
 	},
-	beforeDestroy() {
+	beforeUnmount() {
 		clearTimeout( this.timer );
 	},
 	methods: {
 		onInput( text ) {
-			this.$emit( 'input', text );
+			this.$emit( 'update:value', text );
 			clearTimeout( this.timer );
 			if ( ! text || ! String( text ).trim() ) {
 				this.requestCounter++;
@@ -113,7 +114,7 @@ const TainacanImmichLink = {
 					}
 					this.result = data;
 					if ( emitId && data && data.id && data.id !== text ) {
-						this.$emit( 'input', data.id );
+						this.$emit( 'update:value', data.id );
 						this.$emit( 'blur' );
 					}
 				} )
@@ -129,9 +130,9 @@ const TainacanImmichLink = {
 			<b-input
 				:disabled="disabled"
 				:id="inputId"
-				:value="value"
+				:model-value="value"
 				:placeholder="itemMetadatum.metadatum.placeholder ? itemMetadatum.metadatum.placeholder : 'Immich ID or URL'"
-				@input="onInput($event)"
+				@update:model-value="onInput($event)"
 				@blur="onBlur" />
 			<div v-if="result" class="tainacan-immich-check">
 				<template v-if="result.ok">
