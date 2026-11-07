@@ -48,6 +48,15 @@ const TainacanImmichLink = {
 					: '' )
 			);
 		},
+		place() {
+			const exif = this.result && this.result.exif;
+			if ( ! exif ) {
+				return '';
+			}
+			return [ exif.city, exif.state, exif.country ]
+				.filter( ( part ) => !! part )
+				.join( ', ' );
+		},
 		hasConfig() {
 			return !! (
 				window.tainacanImmich &&
@@ -128,6 +137,15 @@ const TainacanImmichLink = {
 				<template v-if="result.ok">
 					<img v-if="result.thumb" :src="result.thumb" alt="" style="max-height: 96px; max-width: 96px; display: block; margin-top: 0.5em;">
 					<span>{{ result.label }}</span>
+					<div v-if="result.exif" class="tainacan-immich-exif">
+						<template v-if="result.exif.has_gps">
+							<div>Location: {{ result.exif.lat }}, {{ result.exif.lon }} <a :href="result.exif.map_url" target="_blank" rel="noopener noreferrer">Open in OpenStreetMap</a></div>
+							<div v-if="result.exif.null_island" class="has-text-warning">Location is 0, 0. Check the photo.</div>
+						</template>
+						<div v-else>This photo has no GPS location.</div>
+						<div v-if="place">Place: {{ place }}</div>
+						<div v-if="result.exif.date_taken">Date taken: {{ result.exif.date_taken }}<span v-if="result.exif.time_zone"> ({{ result.exif.time_zone }})</span></div>
+					</div>
 				</template>
 				<span v-else class="has-text-danger">{{ result.message }}</span>
 			</div>

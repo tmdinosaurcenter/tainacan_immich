@@ -61,6 +61,7 @@ class Immich_Rest {
 			'id'      => '',
 			'label'   => '',
 			'thumb'   => '',
+			'exif'    => null,
 		);
 		$id  = \Tainacan\Immich_Client::parse_id( $input, $kind );
 		if ( '' === $id ) {
@@ -92,6 +93,9 @@ class Immich_Rest {
 		$out['label'] = ( isset( $info[ $name ] ) && is_string( $info[ $name ] ) ) ? $info[ $name ] : '';
 		if ( 'asset' === $kind || 'person' === $kind ) {
 			$out['thumb'] = self::thumbnail_url( $kind, $id );
+		}
+		if ( 'asset' === $kind ) {
+			$out['exif'] = \Tainacan\Immich_Client::extract_exif( $info );
 		}
 		return $out;
 	}

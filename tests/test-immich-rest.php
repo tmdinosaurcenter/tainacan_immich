@@ -50,7 +50,7 @@ t_run( 'serve_thumbnail', function () use ( $A ) {
 } );
 
 t_run( 'check JSON shape', function () use ( $A ) {
-	$keys = array( 'ok', 'code', 'message', 'id', 'label', 'thumb' );
+	$keys = array( 'ok', 'code', 'message', 'id', 'label', 'thumb', 'exif' );
 
 	t_reset();
 	t_configure();

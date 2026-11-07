@@ -56,6 +56,61 @@ class Immich_Client {
 		return $found;
 	}
 
+	/**
+	 * Format a coordinate as text. Same output at every locale. No exponent.
+	 *
+	 * @param float $value Coordinate.
+	 * @return string
+	 */
+	public static function format_coord( float $value ) : string {
+		$text = number_format( $value, 10, '.', '' );
+		if ( false !== strpos( $text, '.' ) ) {
+			$text = rtrim( rtrim( $text, '0' ), '.' );
+		}
+		if ( '-0' === $text || '' === $text ) {
+			$text = '0';
+		}
+		return $text;
+	}
+
+	/**
+	 * Get safe EXIF data from an Immich asset answer. No HTTP.
+	 *
+	 * @param mixed $info Decoded asset info.
+	 * @return array|null
+	 */
+	public static function extract_exif( $info ) : ?array {
+		if ( ! is_array( $info ) || ! isset( $info['exifInfo'] ) || ! is_array( $info['exifInfo'] ) ) {
+			return null;
+		}
+		$exif  = $info['exifInfo'];
+		$valid = function ( $key, $limit ) use ( $exif ) {
+			$v = isset( $exif[ $key ] ) ? $exif[ $key ] : null;
+			return ( is_int( $v ) || is_float( $v ) ) && is_finite( $v ) && $v >= -$limit && $v <= $limit;
+		};
+		$gps   = $valid( 'latitude', 90 ) && $valid( 'longitude', 180 );
+		$lat   = $gps ? self::format_coord( (float) $exif['latitude'] ) : '';
+		$lon   = $gps ? self::format_coord( (float) $exif['longitude'] ) : '';
+		$text  = function ( $key, $limit ) use ( $exif ) {
+			if ( ! isset( $exif[ $key ] ) || ! is_string( $exif[ $key ] ) ) {
+				return '';
+			}
+			return mb_substr( trim( $exif[ $key ] ), 0, $limit );
+		};
+		return array(
+			'has_gps'     => $gps,
+			'lat'         => $lat,
+			'lon'         => $lon,
+			'map_url'     => $gps ? 'https://www.openstreetmap.org/?mlat=' . $lat . '&mlon=' . $lon . '#map=15/' . $lat . '/' . $lon : '',
+			'null_island' => $gps && 0.0 === (float) $exif['latitude'] && 0.0 === (float) $exif['longitude'],
+			'city'        => $text( 'city', 200 ),
+			'state'       => $text( 'state', 200 ),
+			'country'     => $text( 'country', 200 ),
+			'date_taken'  => ( isset( $exif['dateTimeOriginal'] ) && is_string( $exif['dateTimeOriginal'] ) ) ? mb_substr( $exif['dateTimeOriginal'], 0, 64 ) : '',
+			'time_zone'   => ( isset( $exif['timeZone'] ) && is_string( $exif['timeZone'] ) ) ? mb_substr( $exif['timeZone'], 0, 64 ) : '',
+		);
+	}
+
 	public static function is_configured() : bool {
 		return '' !== self::get_base_url() && '' !== self::get_key();
 	}
