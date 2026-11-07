@@ -20,11 +20,43 @@ if (!defined('ABSPATH')) {
     exit; // Avoid direct access
 }
 
+if ( ! function_exists( 'tainacan_immich_register_metadata_type' ) ) {
+    /**
+     * Registers the "Immich link" metadata type. The bundle is registered by URL only.
+     */
+    function tainacan_immich_register_metadata_type( $helper ) {
+        require_once( __DIR__ . '/metadata-types/class-tainacan-immich-link.php' );
+        $helper->register_metadata_type(
+            'tainacan-immich-link',
+            '\\Tainacan\\Metadata_Types\\Immich_Link',
+            plugin_dir_url( __FILE__ ) . 'build/immich-link.js'
+        );
+    }
+}
+add_action( 'tainacan-register-metadata-type', 'tainacan_immich_register_metadata_type' );
+
+if ( ! function_exists( 'tainacan_immich_register_vuejs_component' ) ) {
+    /**
+     * Registers the options-form component of the metadata type.
+     */
+    function tainacan_immich_register_vuejs_component( $helper ) {
+        $helper->register_vuejs_component(
+            'tainacan-immich-link-form',
+            plugin_dir_url( __FILE__ ) . 'build/immich-link-form.js'
+        );
+    }
+}
+add_action( 'tainacan-register-vuejs-component', 'tainacan_immich_register_vuejs_component' );
+
 add_action('plugins_loaded', function() {
 
     if ( class_exists('\Tainacan\Pages') ) {
         require_once(__DIR__ . '/class-tainacan-immich.php');
         $Tainacan_Immich_Page = \Tainacan\Immich::get_instance();
+        require_once(__DIR__ . '/class-tainacan-immich-client.php');
+        require_once(__DIR__ . '/class-tainacan-immich-rest.php');
+        add_action( 'rest_api_init', array( '\\Tainacan\\Immich_Rest', 'register_routes' ) );
+        add_action( 'admin_enqueue_scripts', array( '\\Tainacan\\Immich_Rest', 'enqueue_config' ), 81 );
     } else {
         add_action('admin_notices', function() {
             echo '<div class="notice notice-error is-dismissible"><p>' . __('Tainacan Immich plugin requires Tainacan plugin to be installed and activated.', 'tainacan-immich') . '</p></div>';

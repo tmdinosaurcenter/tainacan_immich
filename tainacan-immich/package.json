@@ -3,10 +3,10 @@
   "version": "0.0.1",
   "description": "A Tainacan plugin that links items to an Immich photo server.",
   "scripts": {
-    "build": "wp-scripts build",
-    "start": "wp-scripts start",
+    "build": "wp-scripts build src/index.js src/immich-link.js src/immich-link-form.js",
+    "start": "wp-scripts start src/index.js src/immich-link.js src/immich-link-form.js",
     "lint": "wp-scripts lint-js",
-    "format": "wp-scripts format-js"
+    "format": "wp-scripts format src"
   },
   "devDependencies": {
     "@wordpress/scripts": "^30.11.0"
