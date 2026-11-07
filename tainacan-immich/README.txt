@@ -5,7 +5,7 @@ Tags: museums, archives, collections, tainacan
 Requires at least: 5.9
 Tested up to: 6.7
 Requires PHP: 7.1
-Stable tag: 0.0.1
+Stable tag: 0.1.0
 Requires Plugins: tainacan
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
@@ -27,6 +27,17 @@ This plugin will only work with [Tainacan plugin](https://wordpress.org/plugins/
 * Visit our official website: [https://tainacan.org/](https://tainacan.org/)
 * Check our documentation Wiki: [https://wiki.tainacan.org/](https://wiki.tainacan.org/)
 * Source code on GitHub: [https://github.com/tainacan/tainacan](https://github.com/tainacan/tainacan)
+
+== Changelog ==
+
+= 0.1.0 =
+* Settings page for the Immich URL and API key.
+* "Immich link" metadata type for assets, albums and people. Read-only: the plugin never changes Immich.
+* EXIF place, date and OpenStreetMap link shown in the item edit form.
+* Options form and item field use the Tainacan 1.4.1 (Vue 3) component contract.
+
+= 0.0.1 =
+* First scaffold.
 
 == Copyright ==
 
