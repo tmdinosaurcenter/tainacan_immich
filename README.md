@@ -93,4 +93,4 @@ Rules:
 
 ## License
 
-GNU General Public License. See `LICENSE`.
+GNU General Public License version 3. See `LICENSE`.

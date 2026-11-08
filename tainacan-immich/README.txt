@@ -7,8 +7,8 @@ Tested up to: 6.7
 Requires PHP: 7.1
 Stable tag: 0.2.2
 Requires Plugins: tainacan
-License: GPLv2 or later
-License URI: http://www.gnu.org/licenses/gpl-3.0.html
+License: GPLv3
+License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
 Links Tainacan items to assets in an Immich photo server.
 
@@ -54,4 +54,4 @@ This plugin will only work with [Tainacan plugin](https://wordpress.org/plugins/
 
 Tainacan Immich, Copyright 2025 Tainacan.org
 Tainacan Immich plugin is distributed under the terms of the GNU GPLv3
-License details: https://github.com/tainacan/blocksy-tainacan/blob/master/LICENSE
+License details: https://www.gnu.org/licenses/gpl-3.0.html

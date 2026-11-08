@@ -11,8 +11,8 @@ Tested up to: 6.7
 Requires PHP: 7.1
 Stable tag: 0.2.2
 Text Domain: tainacan-immich
-License: GPLv2 or later
-License URI: http://www.gnu.org/licenses/gpl-3.0.html
+License: GPLv3
+License URI: https://www.gnu.org/licenses/gpl-3.0.html
 Requires Plugins: tainacan
 Update URI: https://github.com/tmdinosaurcenter/tainacan_immich
 */
