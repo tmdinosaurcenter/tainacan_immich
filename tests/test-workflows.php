@@ -42,7 +42,7 @@ $pins_path = $root . '/.github/action-pins.txt';
 $pins_text = is_readable( $pins_path ) ? file_get_contents( $pins_path ) : false;
 if ( false === $pins_text ) {
 	$GLOBALS['sh_fails']++;
-	echo "FAIL: .github/action-pins.txt is missing; the user must create it (see README.md, Releasing)\n";
+	echo "FAIL: .github/action-pins.txt is missing; the user must create it (see docs/releasing.md)\n";
 } else {
 	echo "\n== action-pins.txt\n";
 	foreach ( preg_split( '/\r?\n/', $pins_text ) as $i => $line ) {

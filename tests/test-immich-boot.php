@@ -280,8 +280,18 @@ boot_check( 'README.txt 0.2.1 entry above 0.2.0 entry', true, strpos( $readme_tx
 boot_check( 'README.txt changelog entry 0.2.0', true, false !== strpos( $readme_txt, "\n= 0.2.0 =\n" ) );
 boot_check( 'README.txt 0.2.0 entry above 0.1.0 entry', true, strpos( $readme_txt, "\n= 0.2.0 =\n" ) < strpos( $readme_txt, "\n= 0.1.0 =\n" ) );
 boot_check( 'package.json version 0.2.2', '0.2.2', isset( $pkg['version'] ) ? $pkg['version'] : null );
-boot_check( 'root README has Releasing before License', true, false !== strpos( $root_md, "\n## Releasing\n" ) && strpos( $root_md, "\n## Releasing\n" ) < strpos( $root_md, "\n## License\n" ) );
+boot_check( 'root README links docs/releasing.md', true, false !== strpos( $root_md, '`docs/releasing.md`' ) );
+boot_check( 'docs/releasing.md has the Releasing heading', true, 0 === strpos( file_get_contents( dirname( __DIR__ ) . '/docs/releasing.md' ), "# Releasing\n" ) );
 boot_check( 'root README has the update-notice feature line', true, false !== strpos( $root_md, '**Update notices.**' ) );
+boot_check( 'root README links the latest release', true, false !== strpos( $root_md, '(https://github.com/tmdinosaurcenter/tainacan_immich/releases/latest)' ) );
+boot_check( 'root README has Installation heading', true, false !== strpos( $root_md, "\n## Installation\n" ) );
+boot_check( 'root README has Configuration heading', true, false !== strpos( $root_md, "\n## Configuration\n" ) );
+boot_check( 'root README Installation before Configuration', true, strpos( $root_md, "\n## Installation\n" ) < strpos( $root_md, "\n## Configuration\n" ) );
+boot_check( 'root README names the update filter', true, false !== strpos( $root_md, 'tainacan_immich_enable_update_check' ) );
+boot_check( 'root README names the repo constant', true, false !== strpos( $root_md, 'TAINACAN_IMMICH_UPDATE_REPO' ) );
+$root_prose = preg_replace( '/^```.*?^```[^\n]*$/ms', '', $root_md );
+boot_check( 'root README prose has no "not supported"/"not yet"/"removed"', 0, preg_match( '/not supported|not yet|removed/i', $root_prose ) );
+boot_check( 'root README ends with License section', true, false !== strpos( $root_md, "\n## License\n\nGNU General Public License version 3. See `LICENSE`." ) );
 
 echo "\n== Boot summary: {$GLOBALS['boot_passes']} passed, {$GLOBALS['boot_fails']} failed\n";
 exit( $GLOBALS['boot_fails'] > 0 ? 1 : 0 );

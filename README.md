@@ -1,37 +1,107 @@
 # Tainacan Immich
 
-A WordPress plugin that links [Tainacan](https://tainacan.org/) items to photos, albums and people on an [Immich](https://immich.app/) server. The plugin only reads from Immich. It never changes anything there.
+A WordPress plugin that links [Tainacan](https://tainacan.org/) items to photos, albums and people on an [Immich](https://immich.app/) server. It adds one metadata type, "Immich link". The plugin only reads from Immich. It never writes there.
 
 ## Features
 
-- **Settings page.** The admin sets the Immich URL and an API key. The key is never shown again after it is saved.
-- **"Immich link" metadata type.** Add it to any Tainacan collection. Choose one kind per metadatum:
-  - **Asset** (many allowed). Shows a thumbnail.
-  - **Album** (one). Shows a link to the album in Immich.
-  - **Person** (one). Shows the face thumbnail and a link.
-- **EXIF block in the item edit form.** For an asset, the editor sees the place (city, state, country), the date taken and an OpenStreetMap link. The block is read-only. The plugin shows no coordinates on public pages.
-- **Update notices.** WordPress shows new releases from GitHub on the Plugins page. Turn off with the "Check for plugin updates" setting, the `tainacan_immich_enable_update_check` filter, or `define( 'TAINACAN_IMMICH_UPDATE_REPO', '' );` in wp-config.php. The check sends no site data.
-- **Safe thumbnails.** Thumbnails go through a signed proxy on your WordPress site. The API key never goes to the browser.
+- **Metadata type `Immich_Link`.** It shows as "Immich link" in Tainacan. Each metadatum has one kind:
+  - **Asset** (many values allowed). Shows a thumbnail.
+  - **Album** (one value). Shows an "Open in Immich" link.
+  - **Person** (one value). Shows the face thumbnail and an "Open in Immich" link.
+- **Flexible input.** Enter an Immich ID (UUID) or the photo, album or person URL. The plugin checks the ID against Immich when the editor types it.
+- **EXIF block in the item edit form.** For an asset, the editor sees the place (city, state, country), the date taken and an OpenStreetMap link. The block is read-only and visible to editors only.
+- **Signed thumbnail proxy.** Thumbnails load through a REST route on your WordPress site. The route checks an HMAC signature. The API key never goes to the browser.
+- **Settings page.** The admin sets the Immich URL and an API key. The key is stored write-only.
+- **Update notices.** WordPress shows new releases from GitHub on the Plugins page. See Configuration for the controls.
 
 ## Requirements
 
 - WordPress 6.5 or newer.
 - PHP 7.1 or newer.
-- Tainacan 1.4.1 or newer, active. Without Tainacan, the plugin shows an admin notice and stays inactive.
-- An Immich server (tested against the 3.3 API) and an API key with read scopes only.
+- Tainacan 1.4.1 or newer, active.
+- An Immich server. The plugin is tested against the 3.3 API.
+- An Immich API key with read scopes only. The plugin needs `asset.read`, `asset.view`, `album.read` and `person.read`.
 
-## Install
+## Installation
 
-1. Download `tainacan-immich.zip` from the latest release.
-2. In WordPress admin, go to Plugins > Add New > Upload Plugin. Pick the zip and activate it.
-3. Open the plugin settings page. Enter the Immich URL and the API key. Save.
-4. In Tainacan, open a collection > Metadata > add a metadatum of type **Immich link**. Set "Kind of Immich link". Save.
-5. In an item, paste an Immich ID or URL:
+1. Download `tainacan-immich.zip` from the [latest release](https://github.com/tmdinosaurcenter/tainacan_immich/releases/latest).
+2. In the WordPress admin, go to Plugins > Add New > Upload Plugin. Choose the zip, click Install Now, then Activate.
+3. Open the settings page and enter the Immich URL and API key (see Configuration).
+
+Without Tainacan, the plugin shows the admin notice "Tainacan Immich plugin requires Tainacan plugin to be installed and activated." and stays inactive.
+
+Later updates arrive on the normal Plugins page.
+
+## Configuration
+
+### Settings page
+
+Open the Tainacan admin menu and click "Immich" (`wp-admin/admin.php?page=tainacan_immich`). Only users with the `manage_options` capability can change the settings.
+
+| Field | Option | Default | Notes |
+|---|---|---|---|
+| Immich server URL | `tainacan_immich_url` | empty | Base URL without `/api`, for example `https://immich.example.org`. Must be a full http or https URL. The plugin strips a trailing slash. An invalid URL shows an error and keeps the old value. |
+| Immich API key | `tainacan_immich_api_key` | empty | Password field. It is always empty on load. The page says if a key is saved. An empty submit keeps the saved key. |
+| Check for plugin updates | `tainacan_immich_update_check` | on | Checkbox. |
+
+### Kind of Immich link
+
+Each "Immich link" metadatum has the option "Kind of Immich link". The default is Asset.
+
+| Kind | Values | Public output |
+|---|---|---|
+| Asset | Many | Thumbnail |
+| Album | One | "Open in Immich" link (when the Immich URL is set) |
+| Person | One | Face thumbnail and "Open in Immich" link |
+
+On save, each value must be an ID of the chosen kind. An album or person metadatum accepts one value. The plugin refuses an ID that Immich reports as not found, and an asset that is in the Immich trash. Other Immich errors, such as a server that is down, do not block the save.
+
+### Update check
+
+The plugin asks the GitHub releases API for the latest release. It uses GET only and sends no site data. The result is cached for 12 hours. WordPress core downloads the release asset `tainacan-immich.zip` when the admin clicks Update. "View details" shows the release notes.
+
+| Control | Effect |
+|---|---|
+| "Check for plugin updates" checkbox | Turns the check on or off. |
+| `tainacan_immich_enable_update_check` filter | Gets the checkbox value as a bool. Return `false` to turn the check off. |
+| `TAINACAN_IMMICH_UPDATE_REPO` constant | Repository in `owner/repo` form. Default: `tmdinosaurcenter/tainacan_immich`. An empty string or an invalid value turns the check off. |
+
+Examples:
+
+```php
+// wp-config.php
+define( 'TAINACAN_IMMICH_UPDATE_REPO', '' );
+
+// theme or plugin code
+add_filter( 'tainacan_immich_enable_update_check', '__return_false' );
+```
+
+## Usage
+
+1. In Tainacan, open a collection > Metadata. Add a metadatum of type **Immich link**.
+2. Set "Kind of Immich link" and save.
+3. In an item, paste an Immich ID or URL:
    - Asset: `https://<immich>/photos/<UUID>`
    - Album: `https://<immich>/albums/<UUID>`
    - Person: `https://<immich>/people/<UUID>`
 
-Share links (`/s/<name>`) are not supported yet. Use the normal photo, album or person address.
+A bare UUID works too. The plugin stores it in lowercase. If a URL has more than one match, the last one wins. For example, `/albums/<A>/photos/<B>` gives asset `<B>`.
+
+After the editor types, the field calls the check route. On success it shows the thumbnail, the label (asset file name, album name or person name) and replaces the pasted URL with the UUID. On failure it shows the error message.
+
+For an asset, the field also shows the EXIF block: the coordinates with an "Open in OpenStreetMap" link (or a note that the photo has no GPS location), the place and the date taken with time zone.
+
+The public page shows the thumbnail or link for the kind. It makes no call to Immich while it builds the HTML.
+
+## Security and privacy
+
+- The plugin is read-only toward Immich. It sends GET requests only: asset, album and person data, and the two thumbnail routes. It never writes, moves or deletes.
+- The API key is a WordPress option. It goes out only in the `x-api-key` header of server-side requests to Immich. The settings page never shows it again, and it never goes to the browser.
+- Thumbnails go through the route `GET /wp-json/tainacan-immich/v1/thumbnail?kind=&id=&sig=`. The `kind` is `asset` or `person`. The `sig` is an HMAC-SHA256 of `kind|id` made with the WordPress `auth` salt. A bad signature gives 403. The response has `Cache-Control: public, max-age=86400` and `X-Content-Type-Options: nosniff`.
+- The check route `GET /wp-json/tainacan-immich/v1/check` needs the `edit_posts` capability and the REST nonce.
+- EXIF coordinates and place show only in the item edit form. Public pages show no coordinates.
+- Requests to Immich use a 10 second timeout, follow no redirects and read at most 5 MB.
+- The update check sends no site data.
 
 ## Develop
 
@@ -52,44 +122,13 @@ for f in tests/*.js; do node "$f" || echo "FAIL $f"; done
 
 CI (`.github/workflows/ci.yml`) runs lint, these tests, the build and `bin/package.sh` on pushes to `main` and on pull requests.
 
-`docs/live-checks.md` lists the manual checks for a test WordPress site.
+`docs/live-checks.md` lists the manual checks for a test WordPress site. `docs/releasing.md` describes how to publish a release.
 
 The admin script URLs carry `?tainacan_immich_v=<Version>` from the main file header, so browser and CDN caches load the new files after an update. Bump the version for every release.
 
 ## Versions
 
 The plugin uses [semantic versioning](https://semver.org/). See the changelog in `tainacan-immich/README.txt`.
-
-## Releasing
-
-1. Set the new version `X.Y.Z` (semantic versioning) in the four places: `Version:` and `Stable tag:` in `tainacan-immich/tainacan-immich.php`, `Stable tag:` in `tainacan-immich/README.txt`, `version` in `tainacan-immich/package.json`. Add a `= X.Y.Z =` entry with `* ` lines to `== Changelog ==` in README.txt. Sync `package-lock.json` (`npm install` in `tainacan-immich/`). Commit.
-2. `git tag vX.Y.Z`, then push the branch and the tag to Gitea (`git push origin main vX.Y.Z`). The Gitea push mirror forwards both to GitHub.
-3. On GitHub, the "Release" workflow job `build` checks the notes, runs lint, tests and the build, runs `bin/package.sh vX.Y.Z` and keeps the zip as an artifact. Then job `release` (the only job with write access, no npm) publishes the release with `tainacan-immich.zip`. If the release exists, it replaces the asset and the notes.
-4. Dry run: start "Release" by hand (Actions tab, "Run workflow"). It does not publish. It keeps the zip as a workflow artifact (`tainacan-immich-zip`) for 7 days.
-
-This needs:
-
-- Actions enabled for the GitHub repo.
-- Workflow permissions that allow `contents: write` for jobs that ask for it.
-- A Gitea mirror that pushes tags, not only branches.
-
-By hand (fallback):
-
-```
-cd tainacan-immich && npm ci && npm run build && cd ..
-bin/package.sh vX.Y.Z
-bin/changelog-notes.sh vX.Y.Z > /tmp/notes.md
-gh release create vX.Y.Z build/tainacan-immich.zip --title vX.Y.Z --notes-file /tmp/notes.md
-```
-
-Rules:
-
-- `bin/package.sh` is the only way to make the zip.
-- When you update an action, update `.github/action-pins.txt` and both workflow files (`release.yml`, `ci.yml`) in the same commit. `tests/test-workflows.php` fails if they differ. The user creates and edits `.github/action-pins.txt` by hand (agents must not write it).
-- The asset name must stay `tainacan-immich.zip`.
-- The zip top folder must be `tainacan-immich/`.
-- Tags are `vX.Y.Z`.
-- The release notes become the "View details" changelog (plain lines and `* ` bullets).
 
 ## License
 
