@@ -18,7 +18,7 @@ class Immich_Link extends \Tainacan\Metadata_Types\Metadata_Type {
 		$this->set_form_component( 'tainacan-immich-link-form' );
 		$this->set_default_options( array( 'link_kind' => 'asset' ) );
 		$this->set_preview_template(
-			'<div><div class="control is-clearfix"><input type="text" placeholder="' . esc_attr__( 'Immich ID or URL', 'tainacan-immich' ) . '" class="input"></div></div>'
+			'<div><div class="control is-clearfix"><input type="text" placeholder="' . esc_attr__( 'Immich ID, URL or share link', 'tainacan-immich' ) . '" class="input"></div></div>'
 		);
 	}
 
@@ -48,6 +48,10 @@ class Immich_Link extends \Tainacan\Metadata_Types\Metadata_Type {
 		foreach ( $values as $single ) {
 			if ( null === $single || false === $single || '' === $single || ( is_string( $single ) && '' === trim( $single ) ) ) {
 				continue;
+			}
+			if ( \Tainacan\Immich_Client::looks_like_share( $single ) ) {
+				$this->add_error( __( 'A share link cannot be saved. Wait until the field shows the photo or album, then save again.', 'tainacan-immich' ) );
+				return false;
 			}
 			$id = \Tainacan\Immich_Client::parse_id( $single, $kind );
 			if ( '' === $id ) {

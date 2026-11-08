@@ -93,7 +93,7 @@ boot_check( 'metadata type registered once', 1, count( $helper->calls ) );
 $args = $helper->calls[0][1];
 boot_check( 'handle', 'tainacan-immich-link', $args[0] );
 boot_check( 'class name', '\\Tainacan\\Metadata_Types\\Immich_Link', $args[1] );
-boot_check( 'script url', 'https://wp.example.test/wp-content/plugins/tainacan-immich/build/immich-link.js?tainacan_immich_v=0.2.2', $args[2] );
+boot_check( 'script url', 'https://wp.example.test/wp-content/plugins/tainacan-immich/build/immich-link.js?tainacan_immich_v=0.3.0', $args[2] );
 $meta_url = $args[2];
 boot_check( 'class loads after callback', true, class_exists( '\\Tainacan\\Metadata_Types\\Immich_Link', false ) );
 
@@ -102,7 +102,7 @@ $cb     = boot_hooks( 'tainacan-register-vuejs-component' )[0][1];
 $cb( $helper );
 $args = $helper->calls[0][1];
 boot_check( 'form handle', 'tainacan-immich-link-form', $args[0] );
-boot_check( 'form script url', 'https://wp.example.test/wp-content/plugins/tainacan-immich/build/immich-link-form.js?tainacan_immich_v=0.2.2', $args[1] );
+boot_check( 'form script url', 'https://wp.example.test/wp-content/plugins/tainacan-immich/build/immich-link-form.js?tainacan_immich_v=0.3.0', $args[1] );
 $form_url = $args[1];
 
 echo "\n== Script URL version (in-process)\n";
@@ -112,7 +112,7 @@ $header_version = isset( $hm[1] ) ? $hm[1] : '';
 foreach ( array( 'immich-link.js' => $meta_url, 'immich-link-form.js' => $form_url ) as $fname => $u ) {
 	boot_check( "$fname: ends with ?tainacan_immich_v=<header version>", true, '?tainacan_immich_v=' . $header_version === substr( $u, -strlen( '?tainacan_immich_v=' . $header_version ) ) );
 	parse_str( (string) parse_url( $u, PHP_URL_QUERY ), $q );
-	boot_check( "$fname: exactly one query argument", array( 'tainacan_immich_v' => '0.2.2' ), $q );
+	boot_check( "$fname: exactly one query argument", array( 'tainacan_immich_v' => '0.3.0' ), $q );
 	boot_check( "$fname: no ver argument", false, isset( $q['ver'] ) );
 	$path = (string) parse_url( $u, PHP_URL_PATH );
 	boot_check( "$fname: path ends with file name", $fname, basename( $path ) );
@@ -264,14 +264,16 @@ boot_check( 'no updater hook at top level (transient filter)', 0, count( boot_ho
 boot_check( 'no updater hook at top level (plugins_api)', 0, count( boot_hooks( 'plugins_api' ) ) );
 boot_check( 'no tmdc name in plugin code', 0, substr_count( $src . $immich_src, 'tmdc' ) );
 
-echo "\n== Version places (0.2.2) and release docs\n";
+echo "\n== Version places (0.3.0) and release docs\n";
 $readme_txt = file_get_contents( dirname( __DIR__ ) . '/tainacan-immich/README.txt' );
 $pkg        = json_decode( file_get_contents( dirname( __DIR__ ) . '/tainacan-immich/package.json' ), true );
 $root_md    = file_get_contents( dirname( __DIR__ ) . '/README.md' );
-boot_check( 'main file Version 0.2.2', true, false !== strpos( $src, "\nVersion: 0.2.2\n" ) );
-boot_check( 'main file Stable tag 0.2.2', true, false !== strpos( $src, "\nStable tag: 0.2.2\n" ) );
-boot_check( 'README.txt Stable tag 0.2.2', true, false !== strpos( $readme_txt, "\nStable tag: 0.2.2\n" ) );
+boot_check( 'main file Version 0.3.0', true, false !== strpos( $src, "\nVersion: 0.3.0\n" ) );
+boot_check( 'main file Stable tag 0.3.0', true, false !== strpos( $src, "\nStable tag: 0.3.0\n" ) );
+boot_check( 'README.txt Stable tag 0.3.0', true, false !== strpos( $readme_txt, "\nStable tag: 0.3.0\n" ) );
 boot_check( 'README.txt Requires at least 6.5', true, false !== strpos( $readme_txt, "\nRequires at least: 6.5\n" ) );
+boot_check( 'README.txt changelog entry 0.3.0', true, false !== strpos( $readme_txt, "\n= 0.3.0 =\n" ) );
+boot_check( 'README.txt 0.3.0 entry above 0.2.2 entry', true, strpos( $readme_txt, "\n= 0.3.0 =\n" ) < strpos( $readme_txt, "\n= 0.2.2 =\n" ) );
 boot_check( 'README.txt changelog entry 0.2.2', true, false !== strpos( $readme_txt, "\n= 0.2.2 =\n" ) );
 boot_check( 'README.txt 0.2.2 entry above 0.2.1 entry', true, strpos( $readme_txt, "\n= 0.2.2 =\n" ) < strpos( $readme_txt, "\n= 0.2.1 =\n" ) );
 boot_check( 'root README mentions tainacan_immich_v', true, false !== strpos( $root_md, 'tainacan_immich_v' ) );
@@ -279,7 +281,7 @@ boot_check( 'README.txt changelog entry 0.2.1', true, false !== strpos( $readme_
 boot_check( 'README.txt 0.2.1 entry above 0.2.0 entry', true, strpos( $readme_txt, "\n= 0.2.1 =\n" ) < strpos( $readme_txt, "\n= 0.2.0 =\n" ) );
 boot_check( 'README.txt changelog entry 0.2.0', true, false !== strpos( $readme_txt, "\n= 0.2.0 =\n" ) );
 boot_check( 'README.txt 0.2.0 entry above 0.1.0 entry', true, strpos( $readme_txt, "\n= 0.2.0 =\n" ) < strpos( $readme_txt, "\n= 0.1.0 =\n" ) );
-boot_check( 'package.json version 0.2.2', '0.2.2', isset( $pkg['version'] ) ? $pkg['version'] : null );
+boot_check( 'package.json version 0.3.0', '0.3.0', isset( $pkg['version'] ) ? $pkg['version'] : null );
 boot_check( 'root README links docs/releasing.md', true, false !== strpos( $root_md, '`docs/releasing.md`' ) );
 boot_check( 'docs/releasing.md has the Releasing heading', true, 0 === strpos( file_get_contents( dirname( __DIR__ ) . '/docs/releasing.md' ), "# Releasing\n" ) );
 boot_check( 'root README has the update-notice feature line', true, false !== strpos( $root_md, '**Update notices.**' ) );

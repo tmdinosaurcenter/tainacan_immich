@@ -131,7 +131,7 @@ const TainacanImmichLink = {
 				:disabled="disabled"
 				:id="inputId"
 				:model-value="value"
-				:placeholder="itemMetadatum.metadatum.placeholder ? itemMetadatum.metadatum.placeholder : 'Immich ID or URL'"
+				:placeholder="itemMetadatum.metadatum.placeholder ? itemMetadatum.metadatum.placeholder : 'Immich ID, URL or share link'"
 				@update:model-value="onInput($event)"
 				@blur="onBlur" />
 			<div v-if="result" class="tainacan-immich-check">

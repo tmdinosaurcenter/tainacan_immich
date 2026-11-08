@@ -6,7 +6,7 @@ The automated tests use fakes. These steps prove the plugin in a real WordPress.
 
 - Use a test WordPress site with Tainacan 1.4.1. Do not use a production site.
 - Use a test Immich server, or a production server with a **new API key made only for this test**. Delete the key when you finish.
-- Give the key the read scopes only: `asset.read`, `album.read`, `person.read`, `asset.view`, `person.read`. If a check fails with "forbidden", add the missing read scope and write it in the result.
+- Give the key the read scopes only: `asset.read`, `album.read`, `person.read`, `asset.view`. If a check fails with "forbidden", add the missing read scope and write it in the result.
 - Never paste the key in a ticket, a chat, or a commit.
 - Immich data must not change. Watch the Immich audit view after the checks.
 
@@ -50,6 +50,22 @@ Mark each line PASS or FAIL. Add the exact error text for any FAIL.
 - [ ] Public item page: the link shows as expected and shows no API key in the page source or in the thumbnail URL.
 - [ ] Thumbnail URL has a signature. Change one character of the signature: the proxy refuses it.
 
+### C2. Share links
+
+Use TEST share links made only for this test. Delete them in Immich when done.
+
+- [ ] Album field: paste a `/s/<test-slug>` album link. The album name shows. The field holds a UUID, not the link. Save, reload: the UUID stays.
+- [ ] Asset field: paste a `/share/<test-key>` link with one photo. The thumbnail shows. The field holds a UUID.
+- [ ] Asset field: paste a link with 2 photos. The message says "has 2 photos".
+- [ ] Asset field: paste an album link. The message says to use an album field.
+- [ ] Album field: paste a link with single photos. The message says to use a photo field.
+- [ ] Link with a password: the message says the link has a password or cannot be used.
+- [ ] Expired or deleted link: the message says the link cannot be used.
+- [ ] Paste a share link and save at once, before the check ends. The save is refused with "A share link cannot be saved".
+- [ ] Page source and saved data hold no share key or slug.
+- [ ] The Immich log shows only GET requests for the share check.
+- [ ] Write the Immich version used.
+
 ### D. EXIF block (item edit form only)
 
 - [ ] Asset with GPS: shows place (city, state, country), date taken, and an OpenStreetMap link.
@@ -85,5 +101,6 @@ Send the list with PASS or FAIL for each line, the PHP version, the WordPress ve
 - Vue components were never rendered in a browser (section C and D).
 - No live Immich or Tainacan call was ever made (sections B to E).
 - Immich 3.3.6 behavior for a key with a missing scope is unverified (section B).
+- Immich 3.3.6 share-link answers (`GET /shared-links/me` for password, expired and bad links) are unverified (section C2).
 - Comma-decimal locale runtime was not run (section D).
 - PHP 7.1 runtime was not run (section F).

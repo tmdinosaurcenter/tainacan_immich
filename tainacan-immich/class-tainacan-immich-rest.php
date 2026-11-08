@@ -63,7 +63,17 @@ class Immich_Rest {
 			'thumb'   => '',
 			'exif'    => null,
 		);
-		$id  = \Tainacan\Immich_Client::parse_id( $input, $kind );
+		if ( \Tainacan\Immich_Client::looks_like_share( $input ) ) {
+			$ids = \Tainacan\Immich_Client::resolve_share( $input, $kind );
+			if ( is_wp_error( $ids ) ) {
+				$out['code']    = $ids->get_error_code();
+				$out['message'] = $ids->get_error_message();
+				return $out;
+			}
+			$id = $ids[0];
+		} else {
+			$id = \Tainacan\Immich_Client::parse_id( $input, $kind );
+		}
 		if ( '' === $id ) {
 			/* translators: %s: asset, album or person */
 			$out['message'] = sprintf( __( 'This is not an Immich %s ID or URL.', 'tainacan-immich' ), is_string( $kind ) ? $kind : '' );

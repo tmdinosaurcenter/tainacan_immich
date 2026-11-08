@@ -5,11 +5,11 @@ Plugin URI: https://tainacan.org/
 Description: Links Tainacan items to assets in an Immich photo server.
 Author: Steve
 
-Version: 0.2.2
+Version: 0.3.0
 Requires at least: 6.5
 Tested up to: 6.7
 Requires PHP: 7.1
-Stable tag: 0.2.2
+Stable tag: 0.3.0
 Text Domain: tainacan-immich
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html

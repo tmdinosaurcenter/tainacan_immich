@@ -12,7 +12,11 @@ class Immich_Client {
 
 	const KINDS = array( 'asset', 'album', 'person' );
 
-	const UUID_REGEX = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i';
+	const UUID_REGEX = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i';
+
+	const SHARE_KEY_REGEX = '/^[A-Za-z0-9_-]{1,128}\z/';
+
+	const SHARE_SLUG_REGEX = '/^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?\z/';
 
 	/**
 	 * Get a lowercase UUID from a bare UUID or an Immich web URL.
@@ -54,6 +58,217 @@ class Immich_Client {
 			}
 		}
 		return $found;
+	}
+
+	/**
+	 * True when the input looks like an Immich share URL. No option read, no HTTP.
+	 * Broad on purpose: it is used to refuse storing such a value.
+	 *
+	 * @param mixed $input Text from the editor.
+	 * @return bool
+	 */
+	public static function looks_like_share( $input ) : bool {
+		if ( ! is_string( $input ) ) {
+			return false;
+		}
+		$input = trim( $input );
+		if ( ! preg_match( '#^https?://#i', $input ) ) {
+			return false;
+		}
+		$path = parse_url( $input, PHP_URL_PATH );
+		if ( ! is_string( $path ) || '' === $path ) {
+			return false;
+		}
+		// Decode the path until it does not change (3 rounds at most). Fail closed.
+		for ( $i = 0; $i < 3; $i++ ) {
+			$decoded = rawurldecode( $path );
+			if ( $decoded === $path ) {
+				break;
+			}
+			$path = $decoded;
+		}
+		if ( false !== strpos( $path, '%' ) ) {
+			return true;
+		}
+		return 1 === preg_match( '#(?:^|/)(?:s|share)/.#s', $path );
+	}
+
+	/**
+	 * Read a share key or slug from a share URL on the configured Immich server. No HTTP.
+	 *
+	 * @param mixed $input Text from the editor.
+	 * @return array array{param:string,value:string}, or an empty array.
+	 */
+	public static function parse_share( $input ) : array {
+		if ( ! is_string( $input ) || strlen( $input ) > 2048 ) {
+			return array();
+		}
+		$input = trim( $input );
+		if ( preg_match( '/[\x00-\x1F\x7F]/', $input ) ) {
+			return array();
+		}
+		$base  = get_option( \Tainacan\Immich::OPTION_URL, '' );
+		if ( ! is_string( $base ) || '' === trim( $base ) ) {
+			return array();
+		}
+		$url  = parse_url( $input );
+		$burl = parse_url( rtrim( trim( $base ), '/' ) );
+		if ( ! is_array( $url ) || ! is_array( $burl ) || empty( $url['scheme'] ) || empty( $url['host'] ) || empty( $burl['host'] ) ) {
+			return array();
+		}
+		if ( ! in_array( strtolower( $url['scheme'] ), array( 'http', 'https' ), true ) ) {
+			return array();
+		}
+		if ( isset( $url['user'] ) || isset( $url['pass'] ) ) {
+			return array();
+		}
+		if ( strtolower( $url['host'] ) !== strtolower( $burl['host'] ) ) {
+			return array();
+		}
+		$port  = isset( $url['port'] ) ? (int) $url['port'] : null;
+		$bport = isset( $burl['port'] ) ? (int) $burl['port'] : null;
+		if ( $port !== $bport ) {
+			return array();
+		}
+		$path = isset( $url['path'] ) ? $url['path'] : '';
+		if ( '' === $path || false !== strpos( $path, '%' ) || false !== strpos( $path, '\\' ) ) {
+			return array();
+		}
+		$prefix = isset( $burl['path'] ) ? rtrim( $burl['path'], '/' ) : '';
+		if ( '' !== $prefix ) {
+			if ( 0 !== strpos( $path, $prefix . '/' ) ) {
+				return array();
+			}
+			$path = substr( $path, strlen( $prefix ) );
+		}
+		if ( '/' !== substr( $path, 0, 1 ) ) {
+			return array();
+		}
+		$rest = substr( $path, 1 );
+		if ( '/' === substr( $rest, -1 ) ) {
+			$rest = substr( $rest, 0, -1 );
+		}
+		$parts = explode( '/', $rest );
+		if ( 2 !== count( $parts ) ) {
+			return array();
+		}
+		if ( 'share' === $parts[0] && preg_match( self::SHARE_KEY_REGEX, $parts[1] ) ) {
+			return array(
+				'param' => 'key',
+				'value' => $parts[1],
+			);
+		}
+		if ( 's' === $parts[0] && preg_match( self::SHARE_SLUG_REGEX, $parts[1] ) ) {
+			return array(
+				'param' => 'slug',
+				'value' => $parts[1],
+			);
+		}
+		return array();
+	}
+
+	/**
+	 * Resolve a share key or slug with GET /shared-links/me. No API key, no password.
+	 * Messages never hold the key, the slug or the Immich URL.
+	 *
+	 * @param string $param key or slug.
+	 * @param string $value The key or slug.
+	 * @return array|\WP_Error array{type:string,ids:string[]}
+	 */
+	public static function get_shared_link( $param, $value ) {
+		$regex = array(
+			'key'  => self::SHARE_KEY_REGEX,
+			'slug' => self::SHARE_SLUG_REGEX,
+		);
+		if ( ! is_string( $param ) || ! isset( $regex[ $param ] ) || ! is_string( $value ) || ! preg_match( $regex[ $param ], $value ) ) {
+			return new \WP_Error( 'tainacan_immich_bad_input', __( 'This is not a valid Immich share link for this server.', 'tainacan-immich' ) );
+		}
+		$res = self::request( '/shared-links/me?' . $param . '=' . rawurlencode( $value ), true, 'share link', '', false );
+		if ( is_wp_error( $res ) ) {
+			if ( in_array( $res->get_error_code(), array( 'tainacan_immich_auth', 'tainacan_immich_forbidden', 'tainacan_immich_not_found' ), true ) ) {
+				return new \WP_Error( 'tainacan_immich_share_unusable', __( 'This share link cannot be used. It is removed, expired or protected by a password.', 'tainacan-immich' ) );
+			}
+			return $res;
+		}
+		$bad  = new \WP_Error( 'tainacan_immich_bad_response', __( 'The Immich server sent an answer that the plugin cannot read.', 'tainacan-immich' ) );
+		$data = json_decode( $res['body'], true );
+		if ( ! is_array( $data ) ) {
+			return $bad;
+		}
+		if ( isset( $data['password'] ) && is_string( $data['password'] ) && '' !== $data['password'] ) {
+			return new \WP_Error( 'tainacan_immich_share_password', __( 'This share link is protected by a password. Use a share link without a password.', 'tainacan-immich' ) );
+		}
+		if ( ! isset( $data['type'] ) || ! is_string( $data['type'] ) ) {
+			return $bad;
+		}
+		if ( 'ALBUM' === $data['type'] ) {
+			if ( ! isset( $data['album'] ) || ! is_array( $data['album'] ) || ! isset( $data['album']['id'] ) || ! is_string( $data['album']['id'] ) || ! preg_match( self::UUID_REGEX, $data['album']['id'] ) ) {
+				return $bad;
+			}
+			return array(
+				'type' => 'album',
+				'ids'  => array( strtolower( $data['album']['id'] ) ),
+			);
+		}
+		if ( 'INDIVIDUAL' === $data['type'] ) {
+			if ( ! isset( $data['assets'] ) || ! is_array( $data['assets'] ) ) {
+				return $bad;
+			}
+			$ids = array();
+			foreach ( $data['assets'] as $asset ) {
+				if ( ! is_array( $asset ) || ! isset( $asset['id'] ) || ! is_string( $asset['id'] ) || ! preg_match( self::UUID_REGEX, $asset['id'] ) ) {
+					return $bad;
+				}
+				$id = strtolower( $asset['id'] );
+				if ( ! in_array( $id, $ids, true ) ) {
+					$ids[] = $id;
+				}
+			}
+			if ( ! $ids ) {
+				return new \WP_Error( 'tainacan_immich_share_empty', __( 'This share link has no photos.', 'tainacan-immich' ) );
+			}
+			return array(
+				'type' => 'asset',
+				'ids'  => $ids,
+			);
+		}
+		return new \WP_Error( 'tainacan_immich_share_unknown', __( 'The Immich server sent a kind of share link that the plugin does not know.', 'tainacan-immich' ) );
+	}
+
+	/**
+	 * Turn a share URL into the UUIDs it holds, for a kind of field.
+	 *
+	 * @param mixed  $input Text from the editor.
+	 * @param string $kind  asset, album or person.
+	 * @return array|\WP_Error UUIDs.
+	 */
+	public static function resolve_share( $input, $kind ) {
+		if ( ! is_string( $kind ) || ! in_array( $kind, self::KINDS, true ) ) {
+			return new \WP_Error( 'tainacan_immich_bad_kind', __( 'Unknown kind.', 'tainacan-immich' ) );
+		}
+		if ( 'person' === $kind ) {
+			/* translators: %s: asset, album or person */
+			return new \WP_Error( 'tainacan_immich_bad_input', sprintf( __( 'This is not an Immich %s ID or URL.', 'tainacan-immich' ), $kind ) );
+		}
+		$share = self::parse_share( $input );
+		if ( ! $share ) {
+			return new \WP_Error( 'tainacan_immich_bad_input', __( 'This is not a valid Immich share link for this server.', 'tainacan-immich' ) );
+		}
+		$link = self::get_shared_link( $share['param'], $share['value'] );
+		if ( is_wp_error( $link ) ) {
+			return $link;
+		}
+		if ( 'album' === $kind && 'asset' === $link['type'] ) {
+			return new \WP_Error( 'tainacan_immich_share_wrong_kind', __( 'This share link has single photos. Use a photo field.', 'tainacan-immich' ) );
+		}
+		if ( 'asset' === $kind && 'album' === $link['type'] ) {
+			return new \WP_Error( 'tainacan_immich_share_wrong_kind', __( 'This share link is for an album. Use an album field.', 'tainacan-immich' ) );
+		}
+		if ( 'asset' === $kind && count( $link['ids'] ) > 1 ) {
+			/* translators: %d: number of photos in the share link */
+			return new \WP_Error( 'tainacan_immich_share_too_many', sprintf( __( 'This share link has %d photos. Each value holds one photo. Paste a link to one photo for each value.', 'tainacan-immich' ), count( $link['ids'] ) ) );
+		}
+		return $link['ids'];
 	}
 
 	/**
@@ -215,19 +430,21 @@ class Immich_Client {
 	 * @param bool   $accept_json True for JSON calls.
 	 * @param string $kind        Kind, for messages.
 	 * @param string $permission  Immich permission name, for the 403 message.
+	 * @param bool   $send_key    False for the share call: the link is the credential.
 	 * @return array|\WP_Error
 	 */
-	private static function request( $path, $accept_json, $kind, $permission ) {
+	private static function request( $path, $accept_json, $kind, $permission, $send_key = true ) {
 		if ( ! self::is_configured() ) {
 			return new \WP_Error( 'tainacan_immich_not_configured', __( 'Immich is not set up. Ask the admin to add the server URL and API key.', 'tainacan-immich' ) );
+		}
+		$headers  = array( 'Accept' => $accept_json ? 'application/json' : 'image/*' );
+		if ( $send_key ) {
+			$headers = array( 'x-api-key' => self::get_key() ) + $headers;
 		}
 		$response = wp_remote_get(
 			self::get_base_url() . '/api' . $path,
 			array(
-				'headers'             => array(
-					'x-api-key' => self::get_key(),
-					'Accept'    => $accept_json ? 'application/json' : 'image/*',
-				),
+				'headers'             => $headers,
 				'timeout'             => 10,
 				'redirection'         => 0,
 				'limit_response_size' => 5 * MB_IN_BYTES,

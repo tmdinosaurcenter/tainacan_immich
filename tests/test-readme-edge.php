@@ -141,8 +141,8 @@ re_check( 'no "not yet" or "not supported" inside inline code or links', 0, preg
 $rel = re_read( 'docs/releasing.md' );
 re_check( 'releasing.md has no banned word', 0, preg_match( '/not yet|not supported|removed/i', $rel ) );
 
-echo "\n== Edge 4: no share links, no old versions, no change history\n";
-re_lacks( 'no share link path /s/', '/s/', $md );
+echo "\n== Edge 4: share links are documented, no old versions, no change history\n";
+re_has( 'share link path /s/ is documented', '/s/<slug>', $md );
 re_check( 'no 0.x.y version number', 0, preg_match( '/\b0\.\d+\.\d+\b/', $md ) );
 re_check( 'no history words', 0, preg_match( '/\b(previous|earlier|older|used to|no longer|changed from|new in|since version|prior version|was added|now supports)\b/i', $md ) );
 

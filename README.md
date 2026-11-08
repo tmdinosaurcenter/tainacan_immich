@@ -8,7 +8,7 @@ A WordPress plugin that links [Tainacan](https://tainacan.org/) items to photos,
   - **Asset** (many values allowed). Shows a thumbnail.
   - **Album** (one value). Shows an "Open in Immich" link.
   - **Person** (one value). Shows the face thumbnail and an "Open in Immich" link.
-- **Flexible input.** Enter an Immich ID (UUID) or the photo, album or person URL. The plugin checks the ID against Immich when the editor types it.
+- **Flexible input.** Enter an Immich ID (UUID), the photo, album or person URL, or a share link (`/s/<slug>` or `/share/<key>`). The plugin checks the ID against Immich when the editor types it.
 - **EXIF block in the item edit form.** For an asset, the editor sees the place (city, state, country), the date taken and an OpenStreetMap link. The block is read-only and visible to editors only.
 - **Signed thumbnail proxy.** Thumbnails load through a REST route on your WordPress site. The route checks an HMAC signature. The API key never goes to the browser.
 - **Settings page.** The admin sets the Immich URL and an API key. The key is stored write-only.
@@ -84,6 +84,10 @@ add_filter( 'tainacan_immich_enable_update_check', '__return_false' );
    - Asset: `https://<immich>/photos/<UUID>`
    - Album: `https://<immich>/albums/<UUID>`
    - Person: `https://<immich>/people/<UUID>`
+   - Share link to an album, for an album field: `https://<immich>/s/<slug>` or `https://<immich>/share/<key>`
+   - Share link to one photo, for a photo field: the same two forms
+
+Share links must use the Immich URL set in the plugin. A share link with a password cannot be used. A share link with two or more photos is refused: paste a link to one photo for each value. The plugin asks Immich which album or photo the link holds, then the field keeps only the UUID. The share key or slug is never saved. The plugin sends the request from your server, so a share link also needs the Immich URL and API key set in the plugin settings.
 
 A bare UUID works too. The plugin stores it in lowercase. If a URL has more than one match, the last one wins. For example, `/albums/<A>/photos/<B>` gives asset `<B>`.
 
@@ -95,7 +99,7 @@ The public page shows the thumbnail or link for the kind. It makes no call to Im
 
 ## Security and privacy
 
-- The plugin is read-only toward Immich. It sends GET requests only: asset, album and person data, and the two thumbnail routes. It never writes, moves or deletes.
+- The plugin is read-only toward Immich. It sends GET requests only: asset, album and person data, share link data (`GET /shared-links/me`, sent without the API key) and the two thumbnail routes. It never writes, moves or deletes.
 - The API key is a WordPress option. It goes out only in the `x-api-key` header of server-side requests to Immich. The settings page never shows it again, and it never goes to the browser.
 - Thumbnails go through the route `GET /wp-json/tainacan-immich/v1/thumbnail?kind=&id=&sig=`. The `kind` is `asset` or `person`. The `sig` is an HMAC-SHA256 of `kind|id` made with the WordPress `auth` salt. A bad signature gives 403. The response has `Cache-Control: public, max-age=86400` and `X-Content-Type-Options: nosniff`.
 - The check route `GET /wp-json/tainacan-immich/v1/check` needs the `edit_posts` capability and the REST nonce.
