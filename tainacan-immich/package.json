@@ -1,6 +1,6 @@
 {
   "name": "tainacan-immich",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "A Tainacan plugin that links items to an Immich photo server.",
   "scripts": {
     "build": "wp-scripts build src/index.js src/immich-link.js src/immich-link-form.js",

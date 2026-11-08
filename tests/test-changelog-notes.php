@@ -74,6 +74,10 @@ sh_check( 'real README: one bullet', "* Release tooling: GitHub Actions builds a
 $r = sh_run( array( 'bash', $script, 'v0.2.1' ), $root, $env );
 sh_check( 'real README: exact stdout is one line', 1, substr_count( $r[1], "\n" ) );
 sh_check( 'real README: stderr empty', '', $r[2] );
+$r = sh_run( array( 'bash', $script, 'v0.2.2' ), $root, $env );
+sh_check( 'real README 0.2.2: exit 0', 0, $r[0] );
+sh_check( 'real README 0.2.2: one bullet', "* Fix: the admin scripts now load with the plugin version in their URL, so a browser or CDN cache cannot keep an old copy after an update.\n", $r[1] );
+sh_check( 'real README 0.2.2: stderr empty', '', $r[2] );
 
 echo "\n== Added edge cases\n";
 sh_write( $base . '/trail.txt', "= 0.2.0 =   \n* A.\n" );

@@ -53,6 +53,25 @@ class Boot_Fake_Helper {
 	}
 }
 
+// Fake of core get_file_data (same regex as wp-includes/functions.php). Counts calls.
+$GLOBALS['boot_fgd_calls'] = 0;
+function get_file_data( $file, $default_headers, $context = '' ) {
+	$GLOBALS['boot_fgd_calls']++;
+	$fp        = fopen( $file, 'r' );
+	$file_data = fread( $fp, 8192 );
+	fclose( $fp );
+	$file_data = str_replace( "\r", "\n", $file_data );
+	$all       = array();
+	foreach ( $default_headers as $field => $regex ) {
+		if ( preg_match( '/^(?:[ \t]*<\?php)?[ \t\/*#@]*' . preg_quote( $regex, '/' ) . ':(.*)$/mi', $file_data, $match ) && $match[1] ) {
+			$all[ $field ] = trim( preg_replace( '/\s*(?:\*\/|\?>).*/', '', $match[1] ) );
+		} else {
+			$all[ $field ] = '';
+		}
+	}
+	return $all;
+}
+
 // Minimal base class, so the metadata type class file can load without Tainacan.
 eval( 'namespace Tainacan\Metadata_Types { class Metadata_Type { } }' );
 
@@ -74,7 +93,8 @@ boot_check( 'metadata type registered once', 1, count( $helper->calls ) );
 $args = $helper->calls[0][1];
 boot_check( 'handle', 'tainacan-immich-link', $args[0] );
 boot_check( 'class name', '\\Tainacan\\Metadata_Types\\Immich_Link', $args[1] );
-boot_check( 'script url', 'https://wp.example.test/wp-content/plugins/tainacan-immich/build/immich-link.js', $args[2] );
+boot_check( 'script url', 'https://wp.example.test/wp-content/plugins/tainacan-immich/build/immich-link.js?tainacan_immich_v=0.2.2', $args[2] );
+$meta_url = $args[2];
 boot_check( 'class loads after callback', true, class_exists( '\\Tainacan\\Metadata_Types\\Immich_Link', false ) );
 
 $helper = new Boot_Fake_Helper();
@@ -82,7 +102,128 @@ $cb     = boot_hooks( 'tainacan-register-vuejs-component' )[0][1];
 $cb( $helper );
 $args = $helper->calls[0][1];
 boot_check( 'form handle', 'tainacan-immich-link-form', $args[0] );
-boot_check( 'form script url', 'https://wp.example.test/wp-content/plugins/tainacan-immich/build/immich-link-form.js', $args[1] );
+boot_check( 'form script url', 'https://wp.example.test/wp-content/plugins/tainacan-immich/build/immich-link-form.js?tainacan_immich_v=0.2.2', $args[1] );
+$form_url = $args[1];
+
+echo "\n== Script URL version (in-process)\n";
+$src = file_get_contents( dirname( __DIR__ ) . '/tainacan-immich/tainacan-immich.php' );
+preg_match( '/^Version:[ \t]*(\S+)[ \t]*$/m', $src, $hm );
+$header_version = isset( $hm[1] ) ? $hm[1] : '';
+foreach ( array( 'immich-link.js' => $meta_url, 'immich-link-form.js' => $form_url ) as $fname => $u ) {
+	boot_check( "$fname: ends with ?tainacan_immich_v=<header version>", true, '?tainacan_immich_v=' . $header_version === substr( $u, -strlen( '?tainacan_immich_v=' . $header_version ) ) );
+	parse_str( (string) parse_url( $u, PHP_URL_QUERY ), $q );
+	boot_check( "$fname: exactly one query argument", array( 'tainacan_immich_v' => '0.2.2' ), $q );
+	boot_check( "$fname: no ver argument", false, isset( $q['ver'] ) );
+	$path = (string) parse_url( $u, PHP_URL_PATH );
+	boot_check( "$fname: path ends with file name", $fname, basename( $path ) );
+}
+boot_check( 'both URLs use the same version', substr( $meta_url, strpos( $meta_url, '?' ) ), substr( $form_url, strpos( $form_url, '?' ) ) );
+$v1 = tainacan_immich_get_version();
+$v2 = tainacan_immich_get_version();
+boot_check( 'get_version twice: same value', $v1, $v2 );
+boot_check( 'get_version equals header', $header_version, $v1 );
+boot_check( 'get_file_data called once per request', 1, $GLOBALS['boot_fgd_calls'] );
+boot_check( 'source has no ver argument', 0, substr_count( $src, "'ver'" ) + substr_count( $src, '?ver=' ) );
+boot_check( 'source has no version constant', 0, substr_count( $src, "define( 'TAINACAN_IMMICH_VERSION'" ) );
+
+echo "\n== Script URL version (subprocess, temp copy of the plugin)\n";
+$tmp = sys_get_temp_dir() . '/boottest-' . bin2hex( random_bytes( 6 ) );
+mkdir( $tmp, 0700 );
+$plugin_dir = $tmp . '/tainacan-immich';
+mkdir( $plugin_dir . '/metadata-types', 0755, true );
+copy( dirname( __DIR__ ) . '/tainacan-immich/metadata-types/class-tainacan-immich-link.php', $plugin_dir . '/metadata-types/class-tainacan-immich-link.php' );
+$runner = <<<'RUNNER'
+<?php
+define( 'ABSPATH', '/fake/' );
+function add_action( $h, $c, $p = 10 ) { $GLOBALS['acts'][ $h ] = $c; return true; }
+function __( $t, $d = 'default' ) { return $t; }
+function plugin_dir_url( $f ) { $b = getenv( 'BOOT_BASE' ); return false === $b || '' === $b ? 'https://wp.example.test/wp-content/plugins/tainacan-immich/' : $b; }
+if ( '1' !== getenv( 'BOOT_NO_FGD' ) ) {
+	function get_file_data( $file, $default_headers, $context = '' ) {
+		$fp = fopen( $file, 'r' ); $d = fread( $fp, 8192 ); fclose( $fp );
+		$d = str_replace( "\r", "\n", $d ); $all = array();
+		foreach ( $default_headers as $field => $regex ) {
+			if ( preg_match( '/^(?:[ \t]*<\?php)?[ \t\/*#@]*' . preg_quote( $regex, '/' ) . ':(.*)$/mi', $d, $m ) && $m[1] ) {
+				$all[ $field ] = trim( preg_replace( '/\s*(?:\*\/|\?>).*/', '', $m[1] ) );
+			} else { $all[ $field ] = ''; }
+		}
+		return $all;
+	}
+}
+class Fake_Helper {
+	public $urls = array();
+	public function register_metadata_type( $handle, $class, $url ) { $this->urls[] = $url; }
+	public function register_vuejs_component( $handle, $url ) { $this->urls[] = $url; }
+}
+eval( 'namespace Tainacan\Metadata_Types { class Metadata_Type { } }' );
+require $argv[1];
+$h = new Fake_Helper();
+$GLOBALS['acts']['tainacan-register-metadata-type']( $h );
+$GLOBALS['acts']['tainacan-register-vuejs-component']( $h );
+echo json_encode( array( 'version' => tainacan_immich_get_version(), 'urls' => $h->urls ) );
+RUNNER;
+file_put_contents( $tmp . '/runner.php', $runner );
+
+function boot_run_copy( $tmp, $src, $version_line, $crlf, array $env_extra ) {
+	$body = $src;
+	if ( null === $version_line ) {
+		$body = preg_replace( '/^Version:.*\n/m', '', $body );
+	} else {
+		$body = preg_replace( '/^Version:.*$/m', $version_line, $body );
+	}
+	if ( $crlf ) {
+		$body = str_replace( "\n", "\r\n", $body );
+	}
+	$file = $tmp . '/tainacan-immich/tainacan-immich.php';
+	file_put_contents( $file, $body );
+	$env  = array_merge( array( 'PATH' => (string) getenv( 'PATH' ) ), $env_extra );
+	$spec = array( 1 => array( 'pipe', 'w' ), 2 => array( 'pipe', 'w' ) );
+	$proc = proc_open( array( PHP_BINARY, $tmp . '/runner.php', $file ), $spec, $pipes, $tmp, $env );
+	if ( ! is_resource( $proc ) ) {
+		return array( -1, null );
+	}
+	$out = stream_get_contents( $pipes[1] );
+	stream_get_contents( $pipes[2] );
+	fclose( $pipes[1] );
+	fclose( $pipes[2] );
+	$code = proc_close( $proc );
+	return array( $code, json_decode( $out, true ) );
+}
+function boot_ends_with( $u, $tail ) {
+	return $tail === substr( $u, -strlen( $tail ) );
+}
+
+$r = boot_run_copy( $tmp, $src, 'Version: 9.8.7', false, array() );
+boot_check( 'header 9.8.7: exit 0', 0, $r[0] );
+boot_check( 'header 9.8.7: version', '9.8.7', $r[1]['version'] );
+boot_check( 'header 9.8.7: both URLs', array( true, true ), array( boot_ends_with( $r[1]['urls'][0], 'immich-link.js?tainacan_immich_v=9.8.7' ), boot_ends_with( $r[1]['urls'][1], 'immich-link-form.js?tainacan_immich_v=9.8.7' ) ) );
+
+$odd = array( 'empty' => 'Version:', 'removed' => null, '1.2' => 'Version: 1.2', '1.2.3-beta' => 'Version: 1.2.3-beta', 'abc' => 'Version: abc', 'v1.2.3' => 'Version: v1.2.3', '1.2.3.4' => 'Version: 1.2.3.4' );
+foreach ( $odd as $label => $line ) {
+	$r = boot_run_copy( $tmp, $src, $line, false, array() );
+	boot_check( "odd header ($label): fallback 0", '0', isset( $r[1]['version'] ) ? $r[1]['version'] : null );
+	boot_check( "odd header ($label): both URLs", array( true, true ), isset( $r[1]['urls'] ) ? array( boot_ends_with( $r[1]['urls'][0], 'immich-link.js?tainacan_immich_v=0' ), boot_ends_with( $r[1]['urls'][1], 'immich-link-form.js?tainacan_immich_v=0' ) ) : null );
+}
+
+$r = boot_run_copy( $tmp, $src, 'Version: 1.2.3 ', true, array() );
+boot_check( 'CRLF file with trailing space: version', '1.2.3', isset( $r[1]['version'] ) ? $r[1]['version'] : null );
+
+$r = boot_run_copy( $tmp, $src, 'Version: 5.5.5', false, array( 'BOOT_NO_FGD' => '1' ) );
+boot_check( 'no get_file_data: exit 0', 0, $r[0] );
+boot_check( 'no get_file_data: fallback 0', '0', isset( $r[1]['version'] ) ? $r[1]['version'] : null );
+
+$r = boot_run_copy( $tmp, $src, 'Version: 4.4.4', false, array( 'BOOT_BASE' => 'https://wp.example.test/wp-content/plugins/tainacan-immich/?x=1' ) );
+$u = isset( $r[1]['urls'][0] ) ? $r[1]['urls'][0] : '';
+boot_check( 'base URL with query: uses &', true, false !== strpos( $u, '&tainacan_immich_v=4.4.4' ) );
+boot_check( 'base URL with query: one ?', 1, substr_count( $u, '?' ) );
+
+// Remove the temp dir the test made (only files created above).
+@unlink( $plugin_dir . '/tainacan-immich.php' );
+@unlink( $plugin_dir . '/metadata-types/class-tainacan-immich-link.php' );
+@rmdir( $plugin_dir . '/metadata-types' );
+@rmdir( $plugin_dir );
+@unlink( $tmp . '/runner.php' );
+@rmdir( $tmp );
 
 echo "\n== Tainacan missing branch\n";
 $pl = boot_hooks( 'plugins_loaded' )[0][1];
@@ -123,19 +264,22 @@ boot_check( 'no updater hook at top level (transient filter)', 0, count( boot_ho
 boot_check( 'no updater hook at top level (plugins_api)', 0, count( boot_hooks( 'plugins_api' ) ) );
 boot_check( 'no tmdc name in plugin code', 0, substr_count( $src . $immich_src, 'tmdc' ) );
 
-echo "\n== Version places (0.2.1) and release docs\n";
+echo "\n== Version places (0.2.2) and release docs\n";
 $readme_txt = file_get_contents( dirname( __DIR__ ) . '/tainacan-immich/README.txt' );
 $pkg        = json_decode( file_get_contents( dirname( __DIR__ ) . '/tainacan-immich/package.json' ), true );
 $root_md    = file_get_contents( dirname( __DIR__ ) . '/README.md' );
-boot_check( 'main file Version 0.2.1', true, false !== strpos( $src, "\nVersion: 0.2.1\n" ) );
-boot_check( 'main file Stable tag 0.2.1', true, false !== strpos( $src, "\nStable tag: 0.2.1\n" ) );
-boot_check( 'README.txt Stable tag 0.2.1', true, false !== strpos( $readme_txt, "\nStable tag: 0.2.1\n" ) );
+boot_check( 'main file Version 0.2.2', true, false !== strpos( $src, "\nVersion: 0.2.2\n" ) );
+boot_check( 'main file Stable tag 0.2.2', true, false !== strpos( $src, "\nStable tag: 0.2.2\n" ) );
+boot_check( 'README.txt Stable tag 0.2.2', true, false !== strpos( $readme_txt, "\nStable tag: 0.2.2\n" ) );
 boot_check( 'README.txt Requires at least 6.5', true, false !== strpos( $readme_txt, "\nRequires at least: 6.5\n" ) );
+boot_check( 'README.txt changelog entry 0.2.2', true, false !== strpos( $readme_txt, "\n= 0.2.2 =\n" ) );
+boot_check( 'README.txt 0.2.2 entry above 0.2.1 entry', true, strpos( $readme_txt, "\n= 0.2.2 =\n" ) < strpos( $readme_txt, "\n= 0.2.1 =\n" ) );
+boot_check( 'root README mentions tainacan_immich_v', true, false !== strpos( $root_md, 'tainacan_immich_v' ) );
 boot_check( 'README.txt changelog entry 0.2.1', true, false !== strpos( $readme_txt, "\n= 0.2.1 =\n" ) );
 boot_check( 'README.txt 0.2.1 entry above 0.2.0 entry', true, strpos( $readme_txt, "\n= 0.2.1 =\n" ) < strpos( $readme_txt, "\n= 0.2.0 =\n" ) );
 boot_check( 'README.txt changelog entry 0.2.0', true, false !== strpos( $readme_txt, "\n= 0.2.0 =\n" ) );
 boot_check( 'README.txt 0.2.0 entry above 0.1.0 entry', true, strpos( $readme_txt, "\n= 0.2.0 =\n" ) < strpos( $readme_txt, "\n= 0.1.0 =\n" ) );
-boot_check( 'package.json version 0.2.1', '0.2.1', isset( $pkg['version'] ) ? $pkg['version'] : null );
+boot_check( 'package.json version 0.2.2', '0.2.2', isset( $pkg['version'] ) ? $pkg['version'] : null );
 boot_check( 'root README has Releasing before License', true, false !== strpos( $root_md, "\n## Releasing\n" ) && strpos( $root_md, "\n## Releasing\n" ) < strpos( $root_md, "\n## License\n" ) );
 boot_check( 'root README has the update-notice feature line', true, false !== strpos( $root_md, '**Update notices.**' ) );
 

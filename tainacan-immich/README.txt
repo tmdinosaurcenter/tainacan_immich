@@ -5,7 +5,7 @@ Tags: museums, archives, collections, tainacan
 Requires at least: 6.5
 Tested up to: 6.7
 Requires PHP: 7.1
-Stable tag: 0.2.1
+Stable tag: 0.2.2
 Requires Plugins: tainacan
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
@@ -29,6 +29,9 @@ This plugin will only work with [Tainacan plugin](https://wordpress.org/plugins/
 * Source code on GitHub: [https://github.com/tainacan/tainacan](https://github.com/tainacan/tainacan)
 
 == Changelog ==
+
+= 0.2.2 =
+* Fix: the admin scripts now load with the plugin version in their URL, so a browser or CDN cache cannot keep an old copy after an update.
 
 = 0.2.1 =
 * Release tooling: GitHub Actions builds and publishes the zip when a version tag is pushed.

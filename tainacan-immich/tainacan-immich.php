@@ -5,11 +5,11 @@ Plugin URI: https://tainacan.org/
 Description: Links Tainacan items to assets in an Immich photo server.
 Author: Steve
 
-Version: 0.2.1
+Version: 0.2.2
 Requires at least: 6.5
 Tested up to: 6.7
 Requires PHP: 7.1
-Stable tag: 0.2.1
+Stable tag: 0.2.2
 Text Domain: tainacan-immich
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
@@ -25,6 +25,42 @@ if ( ! defined( 'TAINACAN_IMMICH_UPDATE_REPO' ) ) {
     define( 'TAINACAN_IMMICH_UPDATE_REPO', 'tmdinosaurcenter/tainacan_immich' );
 }
 
+if ( ! function_exists( 'tainacan_immich_get_version' ) ) {
+    /**
+     * Returns the plugin version from the "Version:" header of this file.
+     * Read once per request. Falls back to '0' when the value is missing or not X.Y.Z.
+     */
+    function tainacan_immich_get_version() {
+        static $version = null;
+        if ( null !== $version ) {
+            return $version;
+        }
+        $raw = '';
+        if ( function_exists( 'get_file_data' ) ) {
+            $data = get_file_data( __FILE__, array( 'Version' => 'Version' ) );
+            $raw  = isset( $data['Version'] ) ? trim( (string) $data['Version'] ) : '';
+        }
+        if ( 1 === preg_match( '/^[0-9]+\.[0-9]+\.[0-9]+$/', $raw ) ) {
+            $version = $raw;
+        } else {
+            $version = '0';
+        }
+        return $version;
+    }
+}
+
+if ( ! function_exists( 'tainacan_immich_script_url' ) ) {
+    /**
+     * Returns the URL of a bundle in build/ with the plugin version in the query.
+     * The argument is not named "ver": WordPress replaces that one with the Tainacan version.
+     */
+    function tainacan_immich_script_url( $file_name ) {
+        $url = plugin_dir_url( __FILE__ ) . 'build/' . $file_name;
+        $sep = ( false === strpos( $url, '?' ) ) ? '?' : '&';
+        return $url . $sep . 'tainacan_immich_v=' . rawurlencode( tainacan_immich_get_version() );
+    }
+}
+
 if ( ! function_exists( 'tainacan_immich_register_metadata_type' ) ) {
     /**
      * Registers the "Immich link" metadata type. The bundle is registered by URL only.
@@ -34,7 +70,7 @@ if ( ! function_exists( 'tainacan_immich_register_metadata_type' ) ) {
         $helper->register_metadata_type(
             'tainacan-immich-link',
             '\\Tainacan\\Metadata_Types\\Immich_Link',
-            plugin_dir_url( __FILE__ ) . 'build/immich-link.js'
+            tainacan_immich_script_url( 'immich-link.js' )
         );
     }
 }
@@ -47,7 +83,7 @@ if ( ! function_exists( 'tainacan_immich_register_vuejs_component' ) ) {
     function tainacan_immich_register_vuejs_component( $helper ) {
         $helper->register_vuejs_component(
             'tainacan-immich-link-form',
-            plugin_dir_url( __FILE__ ) . 'build/immich-link-form.js'
+            tainacan_immich_script_url( 'immich-link-form.js' )
         );
     }
 }

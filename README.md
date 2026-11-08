@@ -54,6 +54,8 @@ CI (`.github/workflows/ci.yml`) runs lint, these tests, the build and `bin/packa
 
 `docs/live-checks.md` lists the manual checks for a test WordPress site.
 
+The admin script URLs carry `?tainacan_immich_v=<Version>` from the main file header, so browser and CDN caches load the new files after an update. Bump the version for every release.
+
 ## Versions
 
 The plugin uses [semantic versioning](https://semver.org/). See the changelog in `tainacan-immich/README.txt`.
