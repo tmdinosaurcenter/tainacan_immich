@@ -29,6 +29,13 @@
 						?>
 					</span>
 				</p>
+				<p>
+					<label for="tainacan_immich_update_check">
+						<input type="checkbox" id="tainacan_immich_update_check" name="tainacan_immich_update_check" value="1"<?php echo '1' === (string) get_option( \Tainacan\Immich::OPTION_UPDATE_CHECK, '1' ) ? ' checked="checked"' : ''; ?>>
+						<?php echo esc_html__( 'Check for plugin updates', 'tainacan-immich' ); ?>
+					</label>
+					<span class="description"><?php echo esc_html__( 'The plugin asks GitHub for a new release about two times a day. No site data is sent.', 'tainacan-immich' ); ?></span>
+				</p>
 				<?php submit_button( __( 'Save settings', 'tainacan-immich' ) ); ?>
 			</form>
 		<?php endif; ?>

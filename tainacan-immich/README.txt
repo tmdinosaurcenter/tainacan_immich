@@ -2,10 +2,10 @@
 Author: steve
 Contributors: steve
 Tags: museums, archives, collections, tainacan
-Requires at least: 5.9
+Requires at least: 6.5
 Tested up to: 6.7
 Requires PHP: 7.1
-Stable tag: 0.1.0
+Stable tag: 0.2.0
 Requires Plugins: tainacan
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
@@ -29,6 +29,11 @@ This plugin will only work with [Tainacan plugin](https://wordpress.org/plugins/
 * Source code on GitHub: [https://github.com/tainacan/tainacan](https://github.com/tainacan/tainacan)
 
 == Changelog ==
+
+= 0.2.0 =
+* Update notices in the WordPress dashboard from GitHub releases. "View details" shows the release notes.
+* New setting "Check for plugin updates" (on by default). Sites can also turn the check off with the filter tainacan_immich_enable_update_check or the constant TAINACAN_IMMICH_UPDATE_REPO set to ''.
+* "Update URI" header, so wordpress.org does not offer a different plugin with the same name.
 
 = 0.1.0 =
 * Settings page for the Immich URL and API key.

@@ -8,6 +8,7 @@ class Immich extends \Tainacan\Pages {
 	const OPTION_GROUP   = 'tainacan_immich_settings';
 	const OPTION_URL     = 'tainacan_immich_url';
 	const OPTION_API_KEY = 'tainacan_immich_api_key';
+	const OPTION_UPDATE_CHECK = 'tainacan_immich_update_check';
 
     public function init() {
 		parent::init();
@@ -35,6 +36,23 @@ class Immich extends \Tainacan\Pages {
 				'show_in_rest'      => false,
 			)
 		);
+		register_setting(
+			self::OPTION_GROUP,
+			self::OPTION_UPDATE_CHECK,
+			array(
+				'type'              => 'string',
+				'sanitize_callback' => array( __CLASS__, 'sanitize_update_check' ),
+				'default'           => '1',
+				'show_in_rest'      => false,
+			)
+		);
+	}
+
+	public static function sanitize_update_check( $value ) : string {
+		if ( '1' === $value || 1 === $value || true === $value || 'on' === $value ) {
+			return '1';
+		}
+		return '0';
 	}
 
 	public static function sanitize_url( $value ) : string {

@@ -10,6 +10,7 @@ A WordPress plugin that links [Tainacan](https://tainacan.org/) items to photos,
   - **Album** (one). Shows a link to the album in Immich.
   - **Person** (one). Shows the face thumbnail and a link.
 - **EXIF block in the item edit form.** For an asset, the editor sees the place (city, state, country), the date taken and an OpenStreetMap link. The block is read-only. The plugin shows no coordinates on public pages.
+- **Update notices.** WordPress shows new releases from GitHub on the Plugins page. Turn off with the "Check for plugin updates" setting, the `tainacan_immich_enable_update_check` filter, or `define( 'TAINACAN_IMMICH_UPDATE_REPO', '' );` in wp-config.php. The check sends no site data.
 - **Safe thumbnails.** Thumbnails go through a signed proxy on your WordPress site. The API key never goes to the browser.
 
 ## Requirements
@@ -54,6 +55,22 @@ for f in tests/*.js; do node "$f" || echo "FAIL $f"; done
 ## Versions
 
 The plugin uses [semantic versioning](https://semver.org/). See the changelog in `tainacan-immich/README.txt`.
+
+## Releasing
+
+1. Set the new version `X.Y.Z` (semantic versioning) in the four places: `Version:` and `Stable tag:` in `tainacan-immich/tainacan-immich.php`, `Stable tag:` in `tainacan-immich/README.txt`, `version` in `tainacan-immich/package.json`. Add a `= X.Y.Z =` entry to `== Changelog ==` in README.txt. Commit.
+2. `mkdir -p build && ./build.sh build` (makes a clean copy in `build/tainacan-immich/`; `/build` is in .gitignore).
+3. `(cd build && rm -f tainacan-immich.zip && zip -r tainacan-immich.zip tainacan-immich)`
+4. Check the top folder: `unzip -l build/tainacan-immich.zip | head` must show `tainacan-immich/tainacan-immich.php`.
+5. `git tag vX.Y.Z` and push the branch and the tag to the GitHub remote.
+6. `gh release create vX.Y.Z build/tainacan-immich.zip --title vX.Y.Z --notes "<changelog lines>"`. Do not mark it draft or pre-release when sites must get it.
+
+Rules:
+
+- The asset name must stay `tainacan-immich.zip`.
+- The zip top folder must be `tainacan-immich/`.
+- Tags are `vX.Y.Z`.
+- The release notes become the "View details" changelog (plain lines and `* ` bullets).
 
 ## License
 

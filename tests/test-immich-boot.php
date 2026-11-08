@@ -96,6 +96,7 @@ $notice[0][1]();
 $html = ob_get_clean();
 boot_check( 'notice says Tainacan is required', true, false !== strpos( $html, 'requires Tainacan plugin' ) );
 boot_check( 'notice is an error notice', true, false !== strpos( $html, 'notice-error' ) );
+boot_check( 'Immich_Updater not loaded without Tainacan', false, class_exists( '\\Tainacan\\Immich_Updater', false ) );
 
 echo "\n== Tainacan present branch (source check)\n";
 $src = file_get_contents( dirname( __DIR__ ) . '/tainacan-immich/tainacan-immich.php' );
@@ -107,6 +108,34 @@ boot_check( 'admin_enqueue_scripts at priority 81', true, false !== strpos( $src
 $immich_src = file_get_contents( dirname( __DIR__ ) . '/tainacan-immich/class-tainacan-immich.php' );
 // HEAD has two add_action calls in this class (init and add_admin_menu). No new one may be added.
 boot_check( 'no new hooks in Immich class (same count as HEAD)', 2, substr_count( $immich_src, 'add_action(' ) );
+boot_check( 'no add_filter in Immich class', 0, substr_count( $immich_src, 'add_filter(' ) );
+
+echo "\n== Update checker (source and top level)\n";
+$require_updater = "require_once(__DIR__ . '/class-tainacan-immich-updater.php');";
+$register_updater = "\\Tainacan\\Immich_Updater::register( __FILE__ );";
+boot_check( 'updater require line in source', 1, substr_count( $src, $require_updater ) );
+boot_check( 'updater register line in source', 1, substr_count( $src, $register_updater ) );
+boot_check( 'updater require is before register', true, strpos( $src, $require_updater ) < strpos( $src, $register_updater ) );
+boot_check( 'updater lines are after admin_enqueue_scripts line', true, strpos( $src, "'admin_enqueue_scripts', array( '\\\\Tainacan\\\\Immich_Rest', 'enqueue_config' ), 81 );" ) < strpos( $src, $require_updater ) );
+boot_check( 'Update URI header line', true, false !== strpos( $src, 'Update URI: https://github.com/tmdinosaurcenter/tainacan_immich' ) );
+boot_check( 'repo constant default set by main file', 'tmdinosaurcenter/tainacan_immich', TAINACAN_IMMICH_UPDATE_REPO );
+boot_check( 'no updater hook at top level (transient filter)', 0, count( boot_hooks( 'pre_set_site_transient_update_plugins' ) ) );
+boot_check( 'no updater hook at top level (plugins_api)', 0, count( boot_hooks( 'plugins_api' ) ) );
+boot_check( 'no tmdc name in plugin code', 0, substr_count( $src . $immich_src, 'tmdc' ) );
+
+echo "\n== Version places (0.2.0) and release docs\n";
+$readme_txt = file_get_contents( dirname( __DIR__ ) . '/tainacan-immich/README.txt' );
+$pkg        = json_decode( file_get_contents( dirname( __DIR__ ) . '/tainacan-immich/package.json' ), true );
+$root_md    = file_get_contents( dirname( __DIR__ ) . '/README.md' );
+boot_check( 'main file Version 0.2.0', true, false !== strpos( $src, "\nVersion: 0.2.0\n" ) );
+boot_check( 'main file Stable tag 0.2.0', true, false !== strpos( $src, "\nStable tag: 0.2.0\n" ) );
+boot_check( 'README.txt Stable tag 0.2.0', true, false !== strpos( $readme_txt, "\nStable tag: 0.2.0\n" ) );
+boot_check( 'README.txt Requires at least 6.5', true, false !== strpos( $readme_txt, "\nRequires at least: 6.5\n" ) );
+boot_check( 'README.txt changelog entry 0.2.0', true, false !== strpos( $readme_txt, "\n= 0.2.0 =\n" ) );
+boot_check( 'README.txt 0.2.0 entry above 0.1.0 entry', true, strpos( $readme_txt, "\n= 0.2.0 =\n" ) < strpos( $readme_txt, "\n= 0.1.0 =\n" ) );
+boot_check( 'package.json version 0.2.0', '0.2.0', isset( $pkg['version'] ) ? $pkg['version'] : null );
+boot_check( 'root README has Releasing before License', true, false !== strpos( $root_md, "\n## Releasing\n" ) && strpos( $root_md, "\n## Releasing\n" ) < strpos( $root_md, "\n## License\n" ) );
+boot_check( 'root README has the update-notice feature line', true, false !== strpos( $root_md, '**Update notices.**' ) );
 
 echo "\n== Boot summary: {$GLOBALS['boot_passes']} passed, {$GLOBALS['boot_fails']} failed\n";
 exit( $GLOBALS['boot_fails'] > 0 ? 1 : 0 );

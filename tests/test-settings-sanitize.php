@@ -418,13 +418,21 @@ namespace {
 	);
 
 	t_run(
-		'Interface: register_settings() registers both options',
+		'Interface: register_settings() registers all three options',
 		function () use ( $OPT_URL, $OPT_KEY ) {
 			t_reset();
 			$GLOBALS['test_registered'] = array();
 			$obj = new \Tainacan\Immich();
 			$obj->register_settings();
-			t_check( 'two options registered', 2, count( $GLOBALS['test_registered'] ) );
+			t_check( 'three options registered', 3, count( $GLOBALS['test_registered'] ) );
+
+			$upd = $GLOBALS['test_registered'][ \Tainacan\Immich::OPTION_UPDATE_CHECK ];
+			t_check( 'update check group', 'tainacan_immich_settings', $upd['group'] );
+			t_check( 'update check type string', 'string', $upd['args']['type'] );
+			t_check( 'update check sanitize callback', array( 'Tainacan\\Immich', 'sanitize_update_check' ), $upd['args']['sanitize_callback'] );
+			t_check( 'update check default is 1', '1', $upd['args']['default'] );
+			t_check( 'update check show_in_rest false', false, $upd['args']['show_in_rest'] );
+			t_check( 'update check register args have exactly 4 keys', array( 'type', 'sanitize_callback', 'default', 'show_in_rest' ), array_keys( $upd['args'] ) );
 
 			$url = $GLOBALS['test_registered'][ $OPT_URL ];
 			t_check( 'URL group', 'tainacan_immich_settings', $url['group'] );
@@ -588,6 +596,89 @@ namespace {
 			t_contains( 'URL help text', 'The base URL of the Immich server, without /api.', $html );
 			t_contains( 'submit button label', 'value="Save settings"', $html );
 			t_contains( 'no-key status when none saved', 'No API key is saved.', $html );
+		}
+	);
+
+	// ---- Update check option (edge 26, edge 27, page checkbox) ---------------
+
+	t_run(
+		'Update check: option constant value and sanitizer cases (edge 26)',
+		function () {
+			t_check( 'OPTION_UPDATE_CHECK value', 'tainacan_immich_update_check', \Tainacan\Immich::OPTION_UPDATE_CHECK );
+			$m = new \ReflectionMethod( 'Tainacan\\Immich', 'sanitize_update_check' );
+			t_check( 'sanitize_update_check is public static', true, $m->isPublic() && $m->isStatic() );
+			t_check( 'sanitize_update_check returns string', 'string', (string) $m->getReturnType() );
+
+			$on = array( '1', 1, true, 'on' );
+			foreach ( $on as $value ) {
+				t_check( 'checked value gives 1: ' . var_export( $value, true ), '1', \Tainacan\Immich::sanitize_update_check( $value ) );
+			}
+			$off = array( null, '', '0', 0, false, 'no', 'off', array(), array( '1' ), 'true', 2 );
+			foreach ( $off as $value ) {
+				t_check( 'other value gives 0: ' . var_export( $value, true ), '0', \Tainacan\Immich::sanitize_update_check( $value ) );
+			}
+			foreach ( array_merge( $on, $off ) as $value ) {
+				$once  = \Tainacan\Immich::sanitize_update_check( $value );
+				$twice = \Tainacan\Immich::sanitize_update_check( $once );
+				t_check( 'idempotent: ' . var_export( $value, true ), $once, $twice );
+			}
+		}
+	);
+
+	t_run(
+		'Update check: option never saved (upgrade from 0.1.0) is on and box is checked (edge 27)',
+		function () {
+			t_reset();
+			$GLOBALS['test_caps'] = array( 'manage_options' );
+			$html = t_render_page();
+			t_contains( 'checkbox rendered', 'name="tainacan_immich_update_check"', $html );
+			t_contains( 'checkbox checked when option missing', 'value="1" checked="checked">', $html );
+		}
+	);
+
+	t_run(
+		'Update check: checkbox checked for stored 1, not checked for stored 0',
+		function () {
+			t_reset();
+			$GLOBALS['test_caps']    = array( 'manage_options' );
+			$GLOBALS['test_options'] = array( \Tainacan\Immich::OPTION_UPDATE_CHECK => '1' );
+			$html = t_render_page();
+			t_contains( 'checked when stored 1', 'value="1" checked="checked">', $html );
+
+			$GLOBALS['test_options'] = array( \Tainacan\Immich::OPTION_UPDATE_CHECK => '0' );
+			$html = t_render_page();
+			t_not_contains( 'not checked when stored 0', 'checked="checked"', $html );
+			t_contains( 'checkbox still rendered when off', 'name="tainacan_immich_update_check"', $html );
+		}
+	);
+
+	t_run(
+		'Update check: label text, help text and position before submit',
+		function () {
+			t_reset();
+			$GLOBALS['test_caps'] = array( 'manage_options' );
+			$html = t_render_page();
+			t_contains( 'checkbox label text', 'Check for plugin updates', $html );
+			t_contains( 'checkbox help text', 'The plugin asks GitHub for a new release about two times a day. No site data is sent.', $html );
+			t_check( 'checkbox before submit button', true, strpos( $html, 'name="tainacan_immich_update_check"' ) < strpos( $html, 'type="submit"' ) );
+			t_check( 'checkbox inside the form', true, strpos( $html, '<form' ) < strpos( $html, 'name="tainacan_immich_update_check"' ) && strpos( $html, 'name="tainacan_immich_update_check"' ) < strpos( $html, '</form>' ) );
+		}
+	);
+
+	t_run(
+		'Update check: URL and API key fields unchanged by the new option',
+		function () {
+			t_reset();
+			$GLOBALS['test_caps']    = array( 'manage_options' );
+			$GLOBALS['test_options'] = array(
+				'tainacan_immich_url'          => 'https://immich.example.org',
+				'tainacan_immich_api_key'      => 'fake-key-123',
+				'tainacan_immich_update_check' => '0',
+			);
+			$html = t_render_page();
+			t_contains( 'URL input still has value', 'value="https://immich.example.org"', $html );
+			t_not_contains( 'key not put in value', 'fake-key-123', $html );
+			t_contains( 'key status text still shown', 'An API key is saved.', $html );
 		}
 	);
 
