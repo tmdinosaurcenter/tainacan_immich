@@ -1,0 +1,143 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check changelog notes
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -eu
+          bash bin/changelog-notes.sh "$RELEASE_TAG" > "$RUNNER_TEMP/notes.md"
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: tainacan-immich/package-lock.json
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.3'
+          coverage: none
+
+      - name: Install dependencies
+        shell: bash
+        working-directory: tainacan-immich
+        run: |
+          set -eu
+          npm ci
+
+      - name: Lint
+        shell: bash
+        working-directory: tainacan-immich
+        run: |
+          set -eu
+          npm run lint
+
+      - name: Tests
+        shell: bash
+        run: |
+          set -eu
+          fail=0; for f in tests/test-*.php; do php "$f" || fail=1; done; for f in tests/*.js; do node "$f" || fail=1; done; exit "$fail"
+
+      - name: Build
+        shell: bash
+        working-directory: tainacan-immich
+        run: |
+          set -eu
+          npm run build
+
+      - name: Package
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -eu
+          if [ "$EVENT_NAME" = "push" ] && [ "$REF_TYPE" = "tag" ]; then
+            bash bin/package.sh "$REF_NAME"
+          else
+            bash bin/package.sh
+          fi
+
+      - name: Upload zip
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tainacan-immich-zip
+          path: build/tainacan-immich.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    needs: build
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check changelog notes
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -eu
+          bash bin/changelog-notes.sh "$RELEASE_TAG" > "$RUNNER_TEMP/notes.md"
+
+      - name: Download zip
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: tainacan-immich-zip
+          path: build
+
+      - name: Check zip
+        shell: bash
+        run: |
+          set -eu
+          test -s build/tainacan-immich.zip
+
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -eu
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" build/tainacan-immich.zip --clobber
+            gh release edit "$RELEASE_TAG" --title "$RELEASE_TAG" --notes-file "$RUNNER_TEMP/notes.md" --draft=false --prerelease=false
+          else
+            gh release create "$RELEASE_TAG" build/tainacan-immich.zip --title "$RELEASE_TAG" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag
+          fi

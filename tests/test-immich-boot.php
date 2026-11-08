@@ -123,17 +123,19 @@ boot_check( 'no updater hook at top level (transient filter)', 0, count( boot_ho
 boot_check( 'no updater hook at top level (plugins_api)', 0, count( boot_hooks( 'plugins_api' ) ) );
 boot_check( 'no tmdc name in plugin code', 0, substr_count( $src . $immich_src, 'tmdc' ) );
 
-echo "\n== Version places (0.2.0) and release docs\n";
+echo "\n== Version places (0.2.1) and release docs\n";
 $readme_txt = file_get_contents( dirname( __DIR__ ) . '/tainacan-immich/README.txt' );
 $pkg        = json_decode( file_get_contents( dirname( __DIR__ ) . '/tainacan-immich/package.json' ), true );
 $root_md    = file_get_contents( dirname( __DIR__ ) . '/README.md' );
-boot_check( 'main file Version 0.2.0', true, false !== strpos( $src, "\nVersion: 0.2.0\n" ) );
-boot_check( 'main file Stable tag 0.2.0', true, false !== strpos( $src, "\nStable tag: 0.2.0\n" ) );
-boot_check( 'README.txt Stable tag 0.2.0', true, false !== strpos( $readme_txt, "\nStable tag: 0.2.0\n" ) );
+boot_check( 'main file Version 0.2.1', true, false !== strpos( $src, "\nVersion: 0.2.1\n" ) );
+boot_check( 'main file Stable tag 0.2.1', true, false !== strpos( $src, "\nStable tag: 0.2.1\n" ) );
+boot_check( 'README.txt Stable tag 0.2.1', true, false !== strpos( $readme_txt, "\nStable tag: 0.2.1\n" ) );
 boot_check( 'README.txt Requires at least 6.5', true, false !== strpos( $readme_txt, "\nRequires at least: 6.5\n" ) );
+boot_check( 'README.txt changelog entry 0.2.1', true, false !== strpos( $readme_txt, "\n= 0.2.1 =\n" ) );
+boot_check( 'README.txt 0.2.1 entry above 0.2.0 entry', true, strpos( $readme_txt, "\n= 0.2.1 =\n" ) < strpos( $readme_txt, "\n= 0.2.0 =\n" ) );
 boot_check( 'README.txt changelog entry 0.2.0', true, false !== strpos( $readme_txt, "\n= 0.2.0 =\n" ) );
 boot_check( 'README.txt 0.2.0 entry above 0.1.0 entry', true, strpos( $readme_txt, "\n= 0.2.0 =\n" ) < strpos( $readme_txt, "\n= 0.1.0 =\n" ) );
-boot_check( 'package.json version 0.2.0', '0.2.0', isset( $pkg['version'] ) ? $pkg['version'] : null );
+boot_check( 'package.json version 0.2.1', '0.2.1', isset( $pkg['version'] ) ? $pkg['version'] : null );
 boot_check( 'root README has Releasing before License', true, false !== strpos( $root_md, "\n## Releasing\n" ) && strpos( $root_md, "\n## Releasing\n" ) < strpos( $root_md, "\n## License\n" ) );
 boot_check( 'root README has the update-notice feature line', true, false !== strpos( $root_md, '**Update notices.**' ) );
 

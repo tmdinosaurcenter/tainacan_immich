@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: tainacan-immich/package-lock.json
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.3'
+          coverage: none
+
+      - name: Install dependencies
+        shell: bash
+        working-directory: tainacan-immich
+        run: |
+          set -eu
+          npm ci
+
+      - name: Lint
+        shell: bash
+        working-directory: tainacan-immich
+        run: |
+          set -eu
+          npm run lint
+
+      - name: Tests
+        shell: bash
+        run: |
+          set -eu
+          fail=0; for f in tests/test-*.php; do php "$f" || fail=1; done; for f in tests/*.js; do node "$f" || fail=1; done; exit "$fail"
+
+      - name: Build
+        shell: bash
+        working-directory: tainacan-immich
+        run: |
+          set -eu
+          npm run build
+
+      - name: Package
+        shell: bash
+        run: |
+          set -eu
+          bash bin/package.sh
